@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { loadSettings, saveSettings as saveSettingsDB } from '../utils/db';
 
 const AppContext = createContext(null);
 
 const DEFAULT_SETTINGS = {
-  host: '88.123.188.1',
+  host: '103.66.198.187',
   port: '80',
-  username: 'admin1',
+  username: 'audy_engin25',
   password: 'mandiri123!',
   connected: false,
   lastCheck: null,
@@ -18,6 +19,15 @@ export function AppProvider({ children }) {
       return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
     } catch { return DEFAULT_SETTINGS; }
   });
+
+  // Sync from DB on first load (overrides localStorage with server data)
+  useEffect(() => {
+    loadSettings().then(dbSettings => {
+      if (dbSettings && dbSettings.host) {
+        setSettings(prev => ({ ...prev, ...dbSettings }));
+      }
+    }).catch(console.error);
+  }, []); // eslint-disable-line
 
   // Keep a ref so callMikrotik always reads latest settings (avoids stale closure)
   const settingsRef = useRef(settings);
@@ -32,6 +42,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem('bronet_settings', JSON.stringify(settings));
+    saveSettingsDB(settings).catch(console.error);
   }, [settings]);
 
   useEffect(() => {
