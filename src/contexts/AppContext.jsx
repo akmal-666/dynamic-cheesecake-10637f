@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 const AppContext = createContext(null);
 
@@ -7,21 +7,27 @@ const DEFAULT_SETTINGS = {
   port: '80',
   username: 'audy_engin25',
   password: 'mandiri123!',
-  apiPort: '8728',
   connected: false,
   lastCheck: null,
 };
 
 export function AppProvider({ children }) {
   const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('bronet_settings');
-    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+    try {
+      const saved = localStorage.getItem('bronet_settings');
+      return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+    } catch { return DEFAULT_SETTINGS; }
   });
 
-  const [connectionStatus, setConnectionStatus] = useState('idle'); // idle, checking, connected, error
+  // Keep a ref so callMikrotik always reads latest settings (avoids stale closure)
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+  const [connectionStatus, setConnectionStatus] = useState('idle');
   const [trafficHistory, setTrafficHistory] = useState(() => {
-    const saved = localStorage.getItem('bronet_traffic_history');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      return JSON.parse(localStorage.getItem('bronet_traffic_history') || '[]');
+    } catch { return []; }
   });
 
   useEffect(() => {
@@ -29,19 +35,23 @@ export function AppProvider({ children }) {
   }, [settings]);
 
   useEffect(() => {
-    // Keep only last 7 days of traffic history
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const filtered = trafficHistory.filter(h => new Date(h.timestamp).getTime() > sevenDaysAgo);
     localStorage.setItem('bronet_traffic_history', JSON.stringify(filtered));
   }, [trafficHistory]);
 
   const updateSettings = (newSettings) => {
-    setSettings(prev => ({ ...prev, ...newSettings, connected: false }));
+    setSettings(prev => {
+      const merged = { ...prev, ...newSettings, connected: false };
+      return merged;
+    });
     setConnectionStatus('idle');
   };
 
   const callMikrotik = useCallback(async (path, method = 'GET', data = null) => {
-    // Always use /.netlify/functions/mikrotik (works with `netlify dev` locally & production)
+    const s = settingsRef.current;
+    // On Netlify production: /.netlify/functions/mikrotik
+    // On local netlify dev: same path works
     const endpoint = '/.netlify/functions/mikrotik';
 
     try {
@@ -49,34 +59,33 @@ export function AppProvider({ children }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host: settings.host,
-          port: parseInt(settings.port) || 80,
-          username: settings.username,
-          password: settings.password,
+          host:     s.host,
+          port:     parseInt(s.port) || 80,
+          username: s.username,
+          password: s.password,
           path,
           method,
           data,
         }),
       });
 
-      // Parse response text first — Mikrotik sometimes returns non-JSON
       const text = await response.text();
       let result = null;
       try {
         result = text ? JSON.parse(text) : null;
       } catch {
-        // Response was not JSON (HTML error page, etc.)
         if (!response.ok) {
-          throw new Error(`Server tidak dapat dijangkau (HTTP ${response.status}). Pastikan Anda menjalankan dengan "netlify dev" bukan "npm run dev".`);
+          throw new Error(`HTTP ${response.status} — server tidak dapat dijangkau`);
         }
         return { success: true, data: null };
       }
 
       if (!response.ok) {
-        // Mikrotik REST API error format: { "detail": "...", "error": 400, "message": "..." }
-        // Mikrotik REST error format: { detail, message, error, hint }
-        const msg  = result?.detail || result?.message || (typeof result?.error === 'string' ? result.error : null) || `HTTP ${response.status}`;
-        const hint = result?.hint ? '\n\nSaran: ' + result.hint : '';
+        const msg  = result?.detail
+          || result?.message
+          || (typeof result?.error === 'string' ? result.error : null)
+          || `HTTP ${response.status}`;
+        const hint = result?.hint ? '\nSaran: ' + result.hint : '';
         throw new Error(String(msg) + hint);
       }
 
@@ -85,7 +94,7 @@ export function AppProvider({ children }) {
       console.error('Mikrotik API error:', err);
       return { success: false, error: err.message };
     }
-  }, [settings]);
+  }, []); // no deps — reads from ref
 
   const testConnection = useCallback(async () => {
     setConnectionStatus('checking');
@@ -101,18 +110,12 @@ export function AppProvider({ children }) {
     }
   }, [callMikrotik]);
 
-  const saveTrafficData = useCallback((interfaceName, rxBps, txBps) => {
-    const entry = {
+  const saveTrafficData = useCallback((interfaceName, rx, tx) => {
+    setTrafficHistory(prev => [...prev, {
       timestamp: new Date().toISOString(),
       interface: interfaceName,
-      rx: rxBps,
-      tx: txBps,
-    };
-    setTrafficHistory(prev => {
-      const updated = [...prev, entry];
-      // Keep only last 10000 entries
-      return updated.slice(-10000);
-    });
+      rx, tx,
+    }].slice(-10000));
   }, []);
 
   const getTrafficHistory = useCallback((interfaceName, hours = 1) => {
