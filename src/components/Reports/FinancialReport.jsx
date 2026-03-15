@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
+import { loadExpenses, saveExpenses as saveExpensesDB } from '../../utils/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { MOCK_PPP_SECRETS, MOCK_PPP_PROFILES, parseComment } from '../../utils/mockData';
 import { exportXLSX, fmtRp, fmtDate } from '../../utils/exportXlsx';
@@ -46,7 +47,7 @@ export default function FinancialReport() {
   const canDelete = hasPermission('delete-reports');
   const [users, setUsers]     = useState([]);
   const [profiles, setProfiles] = useState([]);
-  const [expenses, setExpenses] = useState(getExpenses());
+  const [expenses, setExpenses] = useState([]);
   const [billing,  setBilling]  = useState(getBilling());
   const [loading,  setLoading]  = useState(false);
   const [curMonth, setCurMonth] = useState(new Date());
@@ -61,6 +62,7 @@ export default function FinancialReport() {
   }, []);
 
   useEffect(() => {
+    loadExpenses().then(saved => { if(saved?.length) setExpenses(saved); }).catch(()=>{});
     setLoading(true);
     Promise.all([callMikrotik('/ppp/secret','GET'), callMikrotik('/ppp/profile','GET')]).then(([ur,pr]) => {
       setUsers(ur.success && Array.isArray(ur.data) ? ur.data : MOCK_PPP_SECRETS);
@@ -124,14 +126,14 @@ export default function FinancialReport() {
     const updated = editExp
       ? expenses.map(e => e.id === editExp.id ? { ...form, id: editExp.id } : e)
       : [...expenses, { ...form, id: Date.now().toString() }];
-    setExpenses(updated); saveExpenses(updated);
+    setExpenses(updated); saveExpenses(updated); saveExpensesDB(updated).catch(console.error);
     toast.success(editExp ? 'Pengeluaran diupdate!' : 'Pengeluaran ditambahkan!');
     setModalOpen(false);
   };
 
   const handleDel = (id) => {
     const updated = expenses.filter(e => e.id !== id);
-    setExpenses(updated); saveExpenses(updated);
+    setExpenses(updated); saveExpenses(updated); saveExpensesDB(updated).catch(console.error);
     setDelConfirm(null); toast.success('Dihapus');
   };
 
