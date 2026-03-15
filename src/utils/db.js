@@ -334,3 +334,61 @@ export async function clearLogs() {
     await supabase.from('bronet_reminder_logs').delete().eq('install_id', INSTALL_ID);
   }
 }
+
+// ─── TRAFFIC HISTORY ─────────────────────────────────────────────────────────
+// Simpan batch titik trafik ke Supabase
+export async function saveTrafficBatch(points) {
+  if (!supabaseReady || !points || points.length === 0) return;
+  try {
+    const rows = points.map(p => ({
+      install_id:  INSTALL_ID,
+      interface:   p.interface,
+      rx:          Math.round(p.rx || 0),
+      tx:          Math.round(p.tx || 0),
+      recorded_at: p.timestamp,
+    }));
+    const { error } = await supabase.from('bronet_traffic_history').insert(rows);
+    if (error) { console.error('[DB] saveTrafficBatch error:', error.message); }
+    else { console.log('[DB] saveTrafficBatch saved', rows.length, 'points'); }
+  } catch (e) { console.error('[DB] saveTrafficBatch exception:', e.message); }
+}
+
+// Load traffic history dari Supabase untuk rentang waktu tertentu
+export async function loadTrafficHistory(interfaceName, hours = 1) {
+  if (!supabaseReady) return null; // null = pakai localStorage
+
+  try {
+    const since = new Date(Date.now() - hours * 3600000).toISOString();
+    const { data, error } = await supabase
+      .from('bronet_traffic_history')
+      .select('interface, rx, tx, recorded_at')
+      .eq('install_id', INSTALL_ID)
+      .eq('interface', interfaceName)
+      .gte('recorded_at', since)
+      .order('recorded_at', { ascending: true })
+      .limit(10000);
+
+    if (error) { console.error('[DB] loadTrafficHistory error:', error.message); return null; }
+    return data.map(r => ({
+      timestamp: r.recorded_at,
+      interface: r.interface,
+      rx: r.rx,
+      tx: r.tx,
+    }));
+  } catch (e) { console.error('[DB] loadTrafficHistory exception:', e.message); return null; }
+}
+
+// Hapus data traffic lama (lebih dari N hari)
+export async function pruneTrafficHistory(days = 365) {
+  if (!supabaseReady) return;
+  try {
+    const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+    const { error } = await supabase
+      .from('bronet_traffic_history')
+      .delete()
+      .eq('install_id', INSTALL_ID)
+      .lt('recorded_at', cutoff);
+    if (error) { console.error('[DB] pruneTrafficHistory error:', error.message); }
+    else { console.log('[DB] pruneTrafficHistory: data older than', days, 'days removed'); }
+  } catch (e) { console.error('[DB] pruneTrafficHistory exception:', e.message); }
+}
