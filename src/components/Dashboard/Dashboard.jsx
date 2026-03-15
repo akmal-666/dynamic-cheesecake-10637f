@@ -15,10 +15,13 @@ const INTERVALS = [
 ];
 
 const HISTORY_RANGES = [
-  { label: '1 Jam', hours: 1 },
-  { label: '6 Jam', hours: 6 },
-  { label: '24 Jam', hours: 24 },
-  { label: '7 Hari', hours: 168 },
+  { label: '1 Jam',   hours: 1 },
+  { label: '6 Jam',   hours: 6 },
+  { label: '1 Hari',  hours: 24 },
+  { label: '7 Hari',  hours: 168 },
+  { label: '30 Hari', hours: 720 },
+  { label: '1 Tahun', hours: 8760 },
+  { label: 'Custom',  hours: 0 },
 ];
 
 function StatCard({ label, value, icon: Icon, color }) {
@@ -62,6 +65,9 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ rx: 0, tx: 0, rxTotal: 0, txTotal: 0 });
   const [showHistory, setShowHistory] = useState(false);
   const [filterDate, setFilterDate] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const isCustomRange = historyRange === 0;
   const timerRef = useRef(null);
 
   useEffect(() => {
@@ -107,13 +113,35 @@ export default function Dashboard() {
 
   const [historyData, setHistoryData] = useState([]);
   useEffect(() => {
+    if (!showHistory) return;
     let cancelled = false;
-    Promise.resolve(getTrafficHistory(selectedIface, historyRange)).then(data => {
-      if (!cancelled) setHistoryData(data || []);
-    });
+
+    if (isCustomRange && dateFrom && dateTo) {
+      // Custom range: filter from existing data
+      const from = new Date(dateFrom).getTime();
+      const to   = new Date(dateTo + 'T23:59:59').getTime();
+      const hoursSpan = Math.ceil((to - from) / 3600000) + 1;
+      Promise.resolve(getTrafficHistory(selectedIface, hoursSpan)).then(data => {
+        if (!cancelled) {
+          const filtered = (data || []).filter(h => {
+            const t = new Date(h.timestamp).getTime();
+            return t >= from && t <= to;
+          });
+          setHistoryData(filtered);
+        }
+      });
+    } else if (!isCustomRange) {
+      Promise.resolve(getTrafficHistory(selectedIface, historyRange)).then(data => {
+        if (!cancelled) setHistoryData(data || []);
+      });
+    }
     return () => { cancelled = true; };
-  }, [selectedIface, historyRange, getTrafficHistory, showHistory]);
-  const filteredHistory = filterDate ? historyData.filter(h => h.timestamp.startsWith(filterDate)) : historyData;
+  }, [selectedIface, historyRange, getTrafficHistory, showHistory, isCustomRange, dateFrom, dateTo]);
+
+  // Single-date filter on top of range result
+  const filteredHistory = filterDate
+    ? historyData.filter(h => h.timestamp.startsWith(filterDate))
+    : historyData;
   const chartHistory = filteredHistory
     .filter((_, i, arr) => i % Math.max(1, Math.floor(arr.length / 60)) === 0)
     .map(h => ({ time: format(new Date(h.timestamp), 'HH:mm'), rx: Math.round(h.rx), tx: Math.round(h.tx) }));
@@ -230,22 +258,50 @@ export default function Dashboard() {
               <p className="text-xs text-gray-500 mt-0.5">{filteredHistory.length} entri tersimpan</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {/* Quick range buttons */}
               {HISTORY_RANGES.map(r => (
-                <button key={r.hours} onClick={() => setHistoryRange(r.hours)}
+                <button key={r.hours} onClick={() => { setHistoryRange(r.hours); setFilterDate(''); }}
                   className={clsx('px-3 py-1.5 rounded-lg text-xs border transition-all',
                     historyRange === r.hours ? 'bg-primary/20 text-primary border-primary/50' : 'border-border text-gray-400 hover:border-gray-500')}>
                   {r.label}
                 </button>
               ))}
-              <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="input-cyber px-3 py-1.5 rounded-lg text-xs" />
-              <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-primary/10 text-primary border border-primary/30">
+            </div>
+          </div>
+
+          {/* Custom date range row */}
+          <div className="flex flex-wrap items-center gap-2 mb-5 pt-3 border-t border-border">
+            <span className="text-xs text-gray-500 whitespace-nowrap">Filter tanggal:</span>
+            {isCustomRange ? (
+              <>
+                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                  className="input-cyber px-3 py-1.5 rounded-lg text-xs" />
+                <span className="text-xs text-gray-500">s/d</span>
+                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                  className="input-cyber px-3 py-1.5 rounded-lg text-xs" />
+                {(dateFrom || dateTo) && (
+                  <button onClick={() => { setDateFrom(''); setDateTo(''); }}
+                    className="px-2 py-1.5 rounded-lg text-xs border border-border text-gray-500 hover:text-white">
+                    Reset
+                  </button>
+                )}
+              </>
+            ) : (
+              <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+                placeholder="Filter 1 hari spesifik"
+                className="input-cyber px-3 py-1.5 rounded-lg text-xs" />
+            )}
+            <div className="ml-auto flex gap-2">
+              <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20">
                 <Save size={14} />Export CSV
               </button>
               <button onClick={() => { if (window.confirm('Hapus semua riwayat?')) { clearTrafficHistory(); toast.success('Riwayat dihapus'); }}}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-red-500/10 text-red-400 border border-red-500/30">
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20">
                 <Trash2 size={14} />Hapus
               </button>
             </div>
+          </div>
+
           </div>
           {chartHistory.length === 0 ? (
             <div className="h-48 flex items-center justify-center text-gray-600 text-sm">Belum ada riwayat. Mulai monitoring untuk menyimpan data.</div>
