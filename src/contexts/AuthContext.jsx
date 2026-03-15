@@ -55,20 +55,21 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [webUsers, setWebUsers] = useState(DEFAULT_USERS);
   const [dbLoaded, setDbLoaded] = useState(false);
+  const [loading, setLoading] = useState(true); // true until auth state resolved
   const [roles, setRoles] = useState(loadRoles);
 
   // Load data from DB on mount
   useEffect(() => {
-    Promise.all([loadWebUsers(), loadRoles()]).then(([users, roles]) => {
-      if (users && users.length > 0) setWebUsers(users);
-      if (roles && roles.length > 0) setRoles(roles);
-      setDbLoaded(true);
-    }).catch(() => setDbLoaded(true));
-
     const savedUser = localStorage.getItem('bronet_current_user');
     if (savedUser) {
       try { setUser(JSON.parse(savedUser)); } catch {}
     }
+    // Load from DB (non-blocking - loading stays false briefly)
+    Promise.all([loadWebUsers(), loadRoles()]).then(([users, roles]) => {
+      if (users && users.length > 0) setWebUsers(users);
+      if (roles && roles.length > 0) setRoles(roles);
+      setDbLoaded(true);
+    }).catch(() => setDbLoaded(true)).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -150,7 +151,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, login, logout, hasPermission,
+      user, login, logout, hasPermission, loading,
       webUsers, addWebUser, updateWebUser, deleteWebUser,
       roles, addRole, updateRole, deleteRole, getRoleById, ALL_PAGES,
     }}>
