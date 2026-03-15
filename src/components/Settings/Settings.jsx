@@ -333,6 +333,92 @@ export default function Settings() {
           <p>• Jika menggunakan ISP dengan CGNAT, IP publik mungkin bukan milik Anda langsung</p>
         </InfoBox>
       </div>
+      </>}
+
+      {/* WhatsApp Template Tab */}
+      {activeTab === 'whatsapp' && (
+        <div className="space-y-5">
+          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <MessageCircle size={16} className="text-primary"/>Provider WhatsApp
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { value:'manual', label:'wa.me (Gratis)', desc:'Buka WA manual per pelanggan' },
+                { value:'fonnte', label:'Fonnte API', desc:'Kirim otomatis Rp 40rb/bln' },
+              ].map(p => (
+                <label key={p.value}
+                  className={clsx('flex flex-col gap-1 px-4 py-3 rounded-xl border cursor-pointer transition-all',
+                    waForm.provider===p.value ? 'bg-primary/15 border-primary/50 text-white' : 'bg-darker border-border text-gray-400 hover:border-gray-500')}>
+                  <input type="radio" name="provider" value={p.value} checked={waForm.provider===p.value}
+                    onChange={() => setWaForm(s=>({...s,provider:p.value}))} className="hidden"/>
+                  <span className="text-sm font-semibold">{p.label}</span>
+                  <span className="text-xs opacity-70">{p.desc}</span>
+                </label>
+              ))}
+            </div>
+            {waForm.provider === 'fonnte' && (
+              <div className="space-y-3 bg-darker/60 border border-border rounded-xl p-4">
+                <div className="text-xs text-blue-400 font-semibold">Cara mendapatkan Token Fonnte:</div>
+                <div className="text-xs text-gray-500 space-y-0.5">
+                  <p>1. Daftar di <span className="mono text-primary">fonnte.com</span> → beli paket (mulai Rp 40rb/bln)</p>
+                  <p>2. Dashboard → Device → Scan QR dengan HP Anda</p>
+                  <p>3. Dashboard → Token → salin ke field di bawah</p>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Token API Fonnte</label>
+                  <input value={waForm.token} onChange={e => setWaForm(s=>({...s,token:e.target.value}))}
+                    className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono" placeholder="Paste token dari dashboard Fonnte..."/>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Nomor Test</label>
+                  <div className="flex gap-2">
+                    <input value={waForm.testPhone||''} onChange={e => setWaForm(s=>({...s,testPhone:e.target.value}))}
+                      className="input-cyber flex-1 px-3 py-2.5 rounded-lg text-sm mono" placeholder="08xxxxxxxxxx"/>
+                    <button onClick={testFonnte} disabled={testingWA}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 text-sm disabled:opacity-40">
+                      {testingWA ? <Loader size={14} className="animate-spin"/> : <Send size={14}/>}
+                      Test
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <MessageCircle size={16} className="text-primary"/>Template Pesan Reminder
+              </h2>
+              <button onClick={() => setWaForm(s=>({...s,template:DEFAULT_TEMPLATE}))}
+                className="text-xs text-gray-500 hover:text-primary transition-colors">Reset default</button>
+            </div>
+            <div className="bg-darker/50 border border-border rounded-lg p-3 text-xs text-gray-400 leading-relaxed">
+              Variabel: <span className="mono text-primary">{'{nama}'} {'{paket}'} {'{harga}'} {'{tanggal}'} {'{username}'} {'{phone}'}</span>
+            </div>
+            <textarea value={waForm.template} rows={12}
+              onChange={e => setWaForm(s=>({...s,template:e.target.value}))}
+              className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono leading-relaxed"/>
+            <div>
+              <div className="text-xs text-gray-500 mb-2">Preview:</div>
+              <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4 text-xs text-gray-300 whitespace-pre-wrap mono leading-relaxed">
+                {waForm.template
+                  .replace('{nama}','Budi Santoso')
+                  .replace('{username}','budi01')
+                  .replace('{paket}','paket-20mbps')
+                  .replace('{harga}','Rp 200.000')
+                  .replace('{tanggal}','15 April 2025')
+                  .replace('{phone}','081234567890')
+                  .replace(/{sisa}/g,'')}
+              </div>
+            </div>
+          </div>
+          <button onClick={saveWASettings}
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm">
+            <Save size={15}/>Simpan Pengaturan WA
+          </button>
+        </div>
+      )}
     </div>
   );
 }
