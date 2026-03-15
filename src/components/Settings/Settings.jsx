@@ -2,9 +2,27 @@ import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Settings as SettingsIcon, Wifi, WifiOff, Eye, EyeOff,
   CheckCircle, AlertCircle, RefreshCw, Save, Info, ExternalLink,
-  ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+  ChevronDown, ChevronUp, Terminal, MessageCircle, Send, Loader } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
+
+const WA_KEY = 'bronet_wa_settings';
+function getWASetting() { try { return JSON.parse(localStorage.getItem(WA_KEY) || '{}'); } catch { return {}; } }
+function saveWASetting(d) { localStorage.setItem(WA_KEY, JSON.stringify(d)); }
+
+const DEFAULT_TEMPLATE = `Halo {nama},
+
+Ini adalah pemberitahuan tagihan internet Bronet.
+
+Detail Tagihan:
+- Paket      : {paket}
+- Tagihan    : {harga}/bulan
+- Jatuh Tempo: {tanggal}
+
+Mohon segera lakukan pembayaran sebelum jatuh tempo agar koneksi tidak terputus.
+
+Terima kasih,
+Admin Bronet`;
 
 function InfoBox({ title, children, color = 'primary' }) {
   const [open, setOpen] = useState(false);
@@ -31,10 +49,38 @@ const COMMON_PORTS = ['80', '8080', '443', '8443'];
 export default function Settings() {
   const { settings, updateSettings, testConnection, connectionStatus } = useApp();
   const [form, setForm] = useState({ ...settings });
+  const [activeTab, setActiveTab] = useState('mikrotik');
+  const [waForm, setWaForm] = useState(() => ({
+    provider: 'manual', token: '', testPhone: '', template: DEFAULT_TEMPLATE, ...getWASetting()
+  }));
+  const [testingWA, setTestingWA] = useState(false);
   const [showPass, setShowPass]     = useState(false);
   const [testing, setTesting]       = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [diag, setDiag]             = useState(null); // detailed diagnostic
+
+  const saveWASettings = () => {
+    saveWASetting(waForm);
+    toast.success('Pengaturan WA disimpan!');
+  };
+
+  const testFonnte = async () => {
+    if (!waForm.token) return toast.error('Isi token Fonnte terlebih dahulu');
+    if (!waForm.testPhone) return toast.error('Isi nomor HP test');
+    setTestingWA(true);
+    try {
+      const body = new FormData();
+      body.append('target', waForm.testPhone.replace(/^0/, '62').replace(/\D/g, ''));
+      body.append('message', 'Test koneksi Fonnte dari Bronet berhasil!');
+      const r = await fetch('https://api.fonnte.com/send', {
+        method: 'POST', headers: { Authorization: waForm.token }, body,
+      });
+      const j = await r.json();
+      if (j.status === true) toast.success('Test berhasil! Pesan terkirim.');
+      else toast.error('Test gagal: ' + (j.reason || 'Token tidak valid?'));
+    } catch(e) { toast.error('Gagal: ' + e.message); }
+    setTestingWA(false);
+  };
 
   const handleSave = () => {
     updateSettings(form);
@@ -111,11 +157,23 @@ export default function Settings() {
   return (
     <div className="space-y-5 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Pengaturan Koneksi</h1>
-        <p className="text-gray-500 text-sm mt-1">Konfigurasi koneksi Mikrotik via REST API</p>
+        <h1 className="text-2xl font-bold text-white">Pengaturan</h1>
+        <p className="text-gray-500 text-sm mt-1">Koneksi Mikrotik & Template WhatsApp</p>
       </div>
 
-      {/* Status banner */}
+      {/* Tabs */}
+      <div className="flex gap-1 bg-darker p-1 rounded-xl w-fit border border-border">
+        {[['mikrotik','Koneksi Mikrotik',SettingsIcon],['whatsapp','Template WhatsApp',MessageCircle]].map(([k,l,Icon]) => (
+          <button key={k} onClick={() => setActiveTab(k)}
+            className={clsx('flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all',
+              activeTab===k ? 'bg-primary text-dark font-semibold' : 'text-gray-400 hover:text-white')}>
+            <Icon size={14}/>{l}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'mikrotik' && <>
+      {/* Status banner */
       <div className={clsx('flex items-center gap-4 p-4 rounded-xl border',
         isConnected          ? 'bg-green-500/10 border-green-500/30' :
         testResult?.success === false ? 'bg-red-500/10 border-red-500/30' :
