@@ -10,35 +10,38 @@ const CORS = {
 function resp(code, obj) {
   return {
     statusCode: code,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: Object.assign({}, CORS, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(obj),
   };
 }
 
 function safeJson(str) {
-  try { return JSON.parse(str); } catch { return null; }
+  try { return JSON.parse(str); } catch (e) { return null; }
 }
 
 function makeRequest(url, method, auth, bodyData) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     var urlObj;
-    try { urlObj = new URL(url); } catch (e) { return reject(new Error('URL tidak valid: ' + url)); }
+    try { urlObj = new URL(url); } catch (e) {
+      return reject(new Error('URL tidak valid: ' + url));
+    }
 
-    var lib = urlObj.protocol === 'https:' ? https : http;
+    var isHttps = urlObj.protocol === 'https:';
+    var lib = isHttps ? https : http;
     var reqMethod = method.toUpperCase();
     var hasBody = ['PUT','PATCH','POST'].indexOf(reqMethod) >= 0 && bodyData != null;
     var reqBody = hasBody ? JSON.stringify(bodyData) : null;
 
     var options = {
       hostname: urlObj.hostname,
-      port:     parseInt(urlObj.port) || (urlObj.protocol === 'https:' ? 443 : 80),
-      path:     urlObj.pathname + urlObj.search,
+      port:     parseInt(urlObj.port) || (isHttps ? 443 : 80),
+      path:     urlObj.pathname + (urlObj.search || ''),
       method:   reqMethod,
       headers: {
         'Authorization': 'Basic ' + auth,
         'Accept': 'application/json',
       },
-      timeout: 10000,
+      timeout: 12000,
       rejectUnauthorized: false,
     };
 
@@ -49,58 +52,66 @@ function makeRequest(url, method, auth, bodyData) {
 
     var req = lib.request(options, function(res) {
       var body = '';
-      res.on('data', function(c) { body += c; });
-      res.on('end', function() { resolve({ statusCode: res.statusCode, body: body }); });
+      res.on('data', function(chunk) { body += chunk; });
+      res.on('end', function() {
+        resolve({ statusCode: res.statusCode, body: body });
+      });
     });
 
-    req.on('error', function(err) { reject(new Error('Koneksi gagal: ' + err.message)); });
-    req.on('timeout', function() { req.destroy(); reject(new Error('Timeout — Mikrotik tidak merespons (10 detik)')); });
+    req.on('error', function(err) {
+      reject(new Error('Tidak dapat terhubung: ' + err.message));
+    });
+    req.on('timeout', function() {
+      req.destroy();
+      reject(new Error('Timeout 12 detik — Mikrotik tidak merespons. Cek firewall/port.'));
+    });
 
-    if (reqBody) req.write(reqBody);
+    if (reqBody) { req.write(reqBody); }
     req.end();
   });
 }
 
 exports.handler = async function(event) {
+  // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: CORS, body: '' };
   }
 
+  // Parse request body
   var body;
   try {
     body = JSON.parse(event.body || '{}');
-  } catch(e) {
-    return resp(400, { error: 'Request body tidak valid (bukan JSON)' });
+  } catch (e) {
+    return resp(400, { error: 'Request body bukan JSON yang valid' });
   }
 
-  var host = body.host, username = body.username, password = body.password, path = body.path;
-  var port = body.port || 80;
-  var method = body.method || 'GET';
-  var data = body.data || null;
+  var host     = body.host;
+  var username = body.username;
+  var password = body.password;
+  var path     = body.path;
+  var port     = body.port || 80;
+  var method   = (body.method || 'GET').toUpperCase(); // ← fix: define here
+  var data     = body.data || null;
 
   if (!host || !username || !password || !path) {
-    return resp(400, { error: 'Parameter tidak lengkap: host, username, password, path wajib diisi' });
+    return resp(400, { error: 'Parameter wajib: host, username, password, path' });
   }
 
   var auth = Buffer.from(username + ':' + password).toString('base64');
 
-  // Try multiple port/protocol combinations
-  var candidates = [];
-  // Primary: exactly what user configured
-  candidates.push('http://' + host + ':' + port + '/rest' + path);
-  // Fallbacks if primary port not 80/8080
-  if (String(port) !== '8080') candidates.push('http://' + host + ':8080/rest' + path);
-  if (String(port) !== '443')  candidates.push('https://' + host + ':443/rest' + path);
+  // Build candidate URLs (primary port first, then fallbacks)
+  var primaryUrl = 'http://' + host + ':' + port + '/rest' + path;
+  var candidates = [primaryUrl];
 
-  // Deduplicate
-  var seen = {};
-  candidates = candidates.filter(function(u) {
-    if (seen[u]) return false;
-    seen[u] = true;
-    return true;
-  });
+  // Add fallback ports (avoid duplicates)
+  if (String(port) !== '8080') {
+    candidates.push('http://' + host + ':8080/rest' + path);
+  }
+  if (String(port) !== '80') {
+    candidates.push('http://' + host + ':80/rest' + path);
+  }
 
-  var lastError = 'Koneksi gagal';
+  var lastError  = 'Tidak dapat terhubung ke Mikrotik';
   var lastStatus = 0;
 
   for (var i = 0; i < candidates.length; i++) {
@@ -108,31 +119,30 @@ exports.handler = async function(event) {
     try {
       var result = await makeRequest(url, method, auth, data);
 
-      // 401 = wrong credentials
+      // 401 = kredensial salah
       if (result.statusCode === 401) {
-        var body401 = safeJson(result.body);
         return resp(401, {
-          error: 'Login gagal — username atau password Mikrotik salah',
-          detail: (body401 && (body401.detail || body401.message)) || '',
+          error: 'Login Mikrotik gagal — username atau password salah',
           url_tried: url,
         });
       }
 
-      // 404 = path tidak ada di URL ini, coba URL berikutnya
+      // 404 = REST API path tidak ada, coba URL berikutnya
       if (result.statusCode === 404) {
         lastStatus = 404;
-        lastError = 'Path REST API tidak ditemukan di ' + url +
-          '. Pastikan RouterOS v7.1+ dan service www aktif (IP > Services > www)';
+        lastError  = 'REST API tidak ditemukan. Pastikan RouterOS v7.1+ dan service www aktif.';
         continue;
       }
 
-      // DELETE: body kosong adalah normal
-      if (reqMethod === 'DELETE') {
-        if (result.statusCode === 204 || result.statusCode === 200 || !result.body || !result.body.trim()) {
+      // DELETE biasanya tidak ada response body
+      if (method === 'DELETE') {
+        if (result.statusCode === 204 || result.statusCode === 200 ||
+            !result.body || !result.body.trim()) {
           return resp(200, { success: true });
         }
       }
 
+      // Return response from Mikrotik
       var outBody = (result.body && result.body.trim()) ? result.body : 'null';
       return {
         statusCode: result.statusCode,
@@ -140,19 +150,19 @@ exports.handler = async function(event) {
         body: outBody,
       };
 
-    } catch(err) {
+    } catch (err) {
       lastError = err.message;
     }
   }
 
-  // Semua kandidat gagal
+  // All candidates failed
   var hint = lastStatus === 404
     ? 'Aktifkan REST API: Winbox > IP > Services > www > Enable (port 80). RouterOS minimal v7.1'
-    : 'Pastikan IP Mikrotik dapat diakses dari internet dan firewall mengizinkan port ' + port;
+    : 'Pastikan IP ' + host + ' bisa diakses dari internet dan port ' + port + ' terbuka di firewall';
 
   return resp(503, {
     error: lastError,
-    hint: hint,
+    hint:  hint,
     tried: candidates,
   });
 };
