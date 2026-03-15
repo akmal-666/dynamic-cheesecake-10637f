@@ -220,28 +220,55 @@ export default function Roles() {
               className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm" placeholder="Supervisor" />
           </div>
 
-          {/* Permission checkboxes */}
+          {/* Permission checkboxes — grouped by category */}
           <div>
             <label className="block text-sm text-gray-400 mb-3">Hak Akses Menu</label>
-            <div className="grid grid-cols-1 gap-2">
-              {ALL_PAGES.map(page => {
-                const has = form.permissions.includes(page.key);
-                return (
-                  <label key={page.key} className={clsx(
-                    'flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all',
-                    has ? 'bg-primary/10 border-primary/40 text-white' : 'bg-darker border-border text-gray-400 hover:border-gray-500'
-                  )}>
-                    <div className={clsx('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0',
-                      has ? 'bg-primary border-primary' : 'border-gray-600')}>
-                      {has && <Check size={12} className="text-dark" />}
+            <div className="space-y-4">
+              {(() => {
+                const groups = {};
+                ALL_PAGES.forEach(page => {
+                  const g = page.group || 'Lainnya';
+                  if (!groups[g]) groups[g] = [];
+                  groups[g].push(page);
+                });
+                return Object.entries(groups).map(([groupName, pages]) => (
+                  <div key={groupName}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{groupName}</div>
+                      <div className="flex-1 h-px bg-border" />
+                      <button type="button" onClick={() => {
+                        const allHas = pages.every(p => form.permissions.includes(p.key));
+                        if (allHas) {
+                          setForm(prev => ({ ...prev, permissions: prev.permissions.filter(p => !pages.find(pg => pg.key === p)) }));
+                        } else {
+                          const toAdd = pages.map(p => p.key).filter(k => !form.permissions.includes(k));
+                          setForm(prev => ({ ...prev, permissions: [...prev.permissions, ...toAdd] }));
+                        }
+                      }} className="text-xs text-primary hover:underline">
+                        {pages.every(p => form.permissions.includes(p.key)) ? 'Hapus semua' : 'Pilih semua'}
+                      </button>
                     </div>
-                    <input type="checkbox" checked={has} onChange={() => togglePermission(page.key)} className="hidden" />
-                    <div>
-                      <div className="text-sm font-medium">{page.label}</div>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {pages.map(page => {
+                        const has = form.permissions.includes(page.key);
+                        return (
+                          <label key={page.key} className={clsx(
+                            'flex items-center gap-3 px-4 py-2.5 rounded-xl border cursor-pointer transition-all',
+                            has ? 'bg-primary/10 border-primary/40 text-white' : 'bg-darker border-border text-gray-400 hover:border-gray-500'
+                          )}>
+                            <div className={clsx('w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0',
+                              has ? 'bg-primary border-primary' : 'border-gray-600')}>
+                              {has && <Check size={12} className="text-dark" />}
+                            </div>
+                            <input type="checkbox" checked={has} onChange={() => togglePermission(page.key)} className="hidden" />
+                            <span className="text-sm">{page.label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
-                  </label>
-                );
-              })}
+                  </div>
+                ));
+              })()}
             </div>
           </div>
 
