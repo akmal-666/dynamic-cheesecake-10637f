@@ -11,6 +11,9 @@ import { id as idLocale } from 'date-fns/locale';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
+// DB helper - Supabase + localStorage fallback
+import { saveAllBilling, loadBilling as loadBillingDB, saveLog as saveLogDB, loadLogs as loadLogsDB, clearLogs as clearLogsDB } from '../../utils/db';
+
 const BILLING_KEY  = 'bronet_billing_v2';
 const WA_KEY       = 'bronet_wa_settings';
 
@@ -72,7 +75,7 @@ export default function Billing() {
   const { callMikrotik } = useApp();
   const [users,    setUsers]    = useState([]);
   const [profiles, setProfiles] = useState([]);
-  const [billing,  setBillingState] = useState(getBilling());
+  const [billing,  setBillingState] = useState([]);
   const [waSettings, setWaSettings] = useState(() => ({
     provider: 'fonnte',
     token: '',
@@ -180,7 +183,17 @@ export default function Billing() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    // Load billing from DB first
+    loadBillingDB().then(saved => {
+      if (saved && saved.length > 0) setBillingState(saved);
+    }).catch(() => {});
+    // Load logs from DB
+    loadLogsDB().then(saved => {
+      if (saved && saved.length > 0) setLogs(saved);
+    }).catch(() => {});
+    loadData();
+  }, []);
 
   // ── H-2 auto detect ─────────────────────────────────────────────────
   useEffect(() => {
@@ -203,7 +216,7 @@ export default function Billing() {
   // ── helpers ─────────────────────────────────────────────────────────
   const getRecord = (username) => billing.find(b => b.username === username);
 
-  const updateBilling = (newArr) => { setBillingState(newArr); saveBilling(newArr); };
+  const updateBilling = (newArr) => { setBillingState(newArr); saveBilling(newArr); saveAllBilling(newArr).catch(console.error); };
 
   // ── LUNAS ───────────────────────────────────────────────────────────
   const confirmLunas = ({ user, record }) => {
@@ -296,6 +309,7 @@ export default function Billing() {
     const newLogs = [...getLogs(), { id: Date.now(), username, phone, message, sentAt: new Date().toISOString() }];
     setLogs(newLogs);
     saveLogs(newLogs);
+    saveLogDB({ id: Date.now(), username, phone, message, sentAt: new Date().toISOString() }).catch(console.error);
     // Update lastReminderAt so LUNAS button re-enables after reminder is sent
     const now = new Date().toISOString();
     const updBilling = billing.map(b =>
@@ -540,7 +554,7 @@ export default function Billing() {
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-border flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">Log Reminder ({logs.length})</h3>
-            <button onClick={() => { saveLogs([]); setLogs([]); toast.success('Log dibersihkan'); }}
+            <button onClick={() => { saveLogs([]); setLogs([]); clearLogsDB().catch(console.error); toast.success('Log dibersihkan'); }}
               className="text-xs text-red-400 hover:text-red-300">Bersihkan</button>
           </div>
           <div className="divide-y divide-border max-h-[480px] overflow-y-auto">
