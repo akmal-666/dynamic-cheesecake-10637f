@@ -4,26 +4,37 @@ import { loadWebUsers, saveWebUsers, loadRoles as loadRolesDB, saveRoles as save
 const AuthContext = createContext(null);
 
 export const ALL_PAGES = [
-  { key: 'dashboard',      label: 'Dashboard Trafik' },
-  { key: 'users',          label: 'User PPPoE' },
-  { key: 'profiles',       label: 'Profil Paket' },
-  { key: 'billing',        label: 'Tagihan & Reminder' },
-  { key: 'settings',       label: 'Pengaturan' },
-  { key: 'usermgmt',       label: 'User Management' },
-  { key: 'roles',          label: 'Manajemen Role' },
-  { key: 'reports',        label: 'Laporan Keuangan & Tagihan' },
-  { key: 'assets',         label: 'Asset Management' },
-  { key: 'delete-reports', label: 'Hapus Data Laporan' },
+  // ── Menu Utama ──────────────────────────────────────────────────────────────
+  { key: 'dashboard', label: 'Dashboard Trafik', group: 'Monitoring' },
+  { key: 'users',     label: 'User PPPoE — Lihat & Kelola', group: 'Monitoring' },
+  { key: 'profiles',  label: 'Profil Paket — Lihat & Kelola', group: 'Monitoring' },
+
+  // ── Tagihan ─────────────────────────────────────────────────────────────────
+  { key: 'billing',        label: 'Tagihan & Reminder — Lihat', group: 'Tagihan' },
+  { key: 'billing-lunas',  label: 'Tagihan — Tandai Lunas', group: 'Tagihan' },
+  { key: 'billing-wa',     label: 'Tagihan — Kirim Reminder WA', group: 'Tagihan' },
+
+  // ── Laporan ──────────────────────────────────────────────────────────────────
+  { key: 'reports',        label: 'Laporan Keuangan & Tagihan', group: 'Laporan' },
+  { key: 'delete-reports', label: 'Laporan — Hapus Data', group: 'Laporan' },
+
+  // ── Aset ─────────────────────────────────────────────────────────────────────
+  { key: 'assets',         label: 'Asset Management', group: 'Aset' },
+
+  // ── Administrasi ─────────────────────────────────────────────────────────────
+  { key: 'settings',       label: 'Pengaturan Koneksi Mikrotik', group: 'Admin' },
+  { key: 'usermgmt',       label: 'User Management Web', group: 'Admin' },
+  { key: 'roles',          label: 'Manajemen Role & Hak Akses', group: 'Admin' },
 ];
 
 const DEFAULT_ROLES = [
   { id: 'superadmin', label: 'Super Admin', editable: false,
-    permissions: ['dashboard','users','profiles','billing','settings','usermgmt','roles','reports','assets','delete-reports'] },
-  { id: 'admin',    label: 'Admin',    editable: true,
-    permissions: ['dashboard','users','profiles','billing','settings','reports','assets','delete-reports'] },
+    permissions: ['dashboard','users','profiles','billing','billing-lunas','billing-wa','settings','usermgmt','roles','reports','delete-reports','assets'] },
+  { id: 'admin', label: 'Admin', editable: true,
+    permissions: ['dashboard','users','profiles','billing','billing-lunas','billing-wa','settings','reports','delete-reports','assets'] },
   { id: 'operator', label: 'Operator', editable: true,
-    permissions: ['dashboard','users','billing'] },
-  { id: 'viewer',   label: 'Viewer',   editable: true,
+    permissions: ['dashboard','users','billing','billing-lunas','billing-wa'] },
+  { id: 'viewer', label: 'Viewer', editable: true,
     permissions: ['dashboard'] },
 ];
 
