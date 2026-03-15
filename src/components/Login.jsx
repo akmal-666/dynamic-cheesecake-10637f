@@ -102,7 +102,7 @@ export default function Login() {
 
           <div className="mt-6 pt-4 border-t border-border">
             <p className="text-xs text-gray-600 text-center">
-              Default: admin / admin123 atau operator / op123
+              Masukan User yang sudah di daftarkan
             </p>
           </div>
         </div>
