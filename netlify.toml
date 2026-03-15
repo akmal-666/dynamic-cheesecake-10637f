@@ -13,8 +13,7 @@
   status = 200
 
 [functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["http", "https"]
+  node_bundler = "nft"
 
 [functions."mikrotik"]
-  timeout = 20
+  timeout = 26
