@@ -70,6 +70,8 @@ export default function Dashboard() {
   const isCustomRange = historyRange === 0;
   const timerRef = useRef(null);
 
+  const { connectionStatus } = useApp();
+
   useEffect(() => {
     callMikrotik('/interface', 'GET').then(r => {
       if (r.success && Array.isArray(r.data)) {
@@ -78,6 +80,13 @@ export default function Dashboard() {
       }
     });
   }, []);
+
+  // Auto-start monitoring when connection is established
+  useEffect(() => {
+    if (connectionStatus === 'connected' && !isMonitoring) {
+      startMonitoring();
+    }
+  }, [connectionStatus]); // eslint-disable-line
 
   const fetchTraffic = useCallback(async () => {
     let rx, tx;
