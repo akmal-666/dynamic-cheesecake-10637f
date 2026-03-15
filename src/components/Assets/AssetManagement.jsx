@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { exportXLSX, fmtRp, fmtDate } from '../../utils/exportXlsx';
 import { loadAssets, saveAssets as saveAssetsDB } from '../../utils/db';
 import {
@@ -74,6 +74,7 @@ function Field({ label, children, required, span }) {
 
 export default function AssetManagement() {
   const [assets,     setAssetsState] = useState([]);
+  const fileInputRef = useRef(null);
   useEffect(() => { loadAssets().then(d => { if(d?.length) setAssetsState(d); }).catch(()=>{}); }, []);
   const [search,     setSearch]      = useState('');
   const [filterCat,  setFilterCat]   = useState('all');
@@ -103,6 +104,62 @@ export default function AssetManagement() {
   const handleDel = (id) => {
     setAssets(assets.filter(a => a.id !== id));
     setDelConfirm(null); toast.success('Aset dihapus');
+  };
+
+  const downloadTemplate = () => {
+    exportXLSX([{
+      name: 'Template Aset',
+      headers: ['Nama Aset*','Kategori','Merek','Model','No. Seri','Lokasi','Dipegang Oleh','Tanggal Beli (YYYY-MM-DD)','Harga Beli','Jumlah','Kondisi','Status','Catatan'],
+      rows: [
+        ['MikroTik hAP ac2','Router/Switch','MikroTik','hAP ac2','SN-001','Gardu RT03','Budi','2024-01-15','850000','1','Baik','Aktif','Contoh isian'],
+        ['Kabel UTP Cat6 100m','Kabel/Aksesori','Belden','Cat6','-','Gudang','Admin','2024-02-01','350000','5','Baik','Aktif',''],
+      ],
+      colWidths: [22,16,12,14,14,16,14,24,12,8,14,14,20],
+    }], 'Template-Import-Aset.xlsx');
+    toast.success('Template berhasil didownload!');
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      const imported = [];
+      ws.eachRow((row, ri) => {
+        if (ri === 1) return; // skip header
+        const vals = row.values.slice(1); // ExcelJS row.values[0] is undefined
+        if (!vals[0]) return; // skip empty rows
+        imported.push({
+          id:           Date.now().toString() + ri,
+          name:         String(vals[0] || ''),
+          category:     String(vals[1] || 'Lainnya'),
+          brand:        String(vals[2] || ''),
+          model:        String(vals[3] || ''),
+          serialNo:     String(vals[4] || ''),
+          location:     String(vals[5] || ''),
+          assignedTo:   String(vals[6] || ''),
+          purchaseDate: vals[7] ? String(vals[7]).substring(0,10) : '',
+          purchasePrice:Number(vals[8]) || 0,
+          quantity:     Number(vals[9]) || 1,
+          condition:    String(vals[10] || 'Baik'),
+          status:       String(vals[11] || 'Aktif'),
+          notes:        String(vals[12] || ''),
+          createdAt:    new Date().toISOString(),
+        });
+      });
+      if (!imported.length) return toast.error('Tidak ada data ditemukan di file');
+      setAssets(prev => {
+        const merged = [...prev, ...imported];
+        return merged;
+      });
+      toast.success(`${imported.length} aset berhasil diimport!`);
+    } catch(err) {
+      toast.error('Gagal import: ' + err.message);
+    }
+    e.target.value = '';
   };
 
   const doExport = () => {
@@ -171,7 +228,15 @@ export default function AssetManagement() {
           <h1 className="text-2xl font-bold text-white">Asset Management</h1>
           <p className="text-gray-500 text-sm mt-1">{assets.length} aset · Nilai total {fmtRp(totalValue)}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={downloadTemplate}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-gray-400 hover:text-white text-sm">
+            <Download size={16}/>Template
+          </button>
+          <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 text-sm hover:bg-blue-500/30 cursor-pointer">
+            <Download size={16}/>Import XLSX
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden"/>
+          </label>
           <button onClick={doExport} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 text-green-400 border border-green-500/30 text-sm hover:bg-green-500/30">
             <Download size={16}/>Export XLSX
           </button>
