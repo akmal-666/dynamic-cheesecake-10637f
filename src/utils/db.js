@@ -8,16 +8,9 @@
 
 import { supabase, supabaseReady } from './supabase';
 
-// ─── Identifier unik per instalasi Bronet ───────────────────────────────────
-function getInstallId() {
-  let id = localStorage.getItem('bronet_install_id');
-  if (!id) {
-    id = 'bronet_' + Math.random().toString(36).substring(2, 10);
-    localStorage.setItem('bronet_install_id', id);
-  }
-  return id;
-}
-const INSTALL_ID = getInstallId();
+// ─── Fixed install ID — semua device pakai ID yang sama ─────────────────────
+// Ini memungkinkan data sinkron di semua device (laptop, HP, tablet)
+const INSTALL_ID = 'bronet_main';
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 const LS_SETTINGS = 'bronet_settings';
