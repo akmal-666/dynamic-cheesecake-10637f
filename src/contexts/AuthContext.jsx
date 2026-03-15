@@ -60,18 +60,32 @@ export function AuthProvider({ children }) {
       try { setUser(JSON.parse(savedUser)); } catch {}
     }
 
-    // 2. Sync from DB in background (Supabase if configured, else localStorage already loaded above)
+    // 2. Sync from DB in background
     Promise.all([loadWebUsers(), loadRolesDB()])
       .then(([dbUsers, dbRoles]) => {
-        if (dbUsers && dbUsers.length > 0) {
-          setWebUsers(dbUsers);
-          // Also write to localStorage so other tabs/devices get it
-          localStorage.setItem('bronet_web_users', JSON.stringify(dbUsers));
-        }
-        if (dbRoles && dbRoles.length > 0) {
-          setRoles(dbRoles);
-          localStorage.setItem('bronet_roles', JSON.stringify(dbRoles));
-        }
+        // ── MERGE strategy: DB + local, local wins for newer items ──
+        setWebUsers(prev => {
+          if (!dbUsers || dbUsers.length === 0) return prev;
+          // Build map from DB
+          const dbMap = Object.fromEntries(dbUsers.map(u => [u.id, u]));
+          // Keep all local users, overlay with DB for existing ones
+          const localIds = new Set(prev.map(u => u.id));
+          const merged = prev.map(u => dbMap[u.id] ? { ...dbMap[u.id], ...u } : u);
+          // Add DB users that don't exist locally
+          dbUsers.forEach(u => { if (!localIds.has(u.id)) merged.push(u); });
+          localStorage.setItem('bronet_web_users', JSON.stringify(merged));
+          return merged;
+        });
+
+        setRoles(prev => {
+          if (!dbRoles || dbRoles.length === 0) return prev;
+          const dbMap = Object.fromEntries(dbRoles.map(r => [r.id, r]));
+          const localIds = new Set(prev.map(r => r.id));
+          const merged = prev.map(r => dbMap[r.id] ? { ...dbMap[r.id], ...r } : r);
+          dbRoles.forEach(r => { if (!localIds.has(r.id)) merged.push(r); });
+          localStorage.setItem('bronet_roles', JSON.stringify(merged));
+          return merged;
+        });
       })
       .catch(console.error)
       .finally(() => {
@@ -128,18 +142,36 @@ export function AuthProvider({ children }) {
   // ── Web Users CRUD ─────────────────────────────────────────────────────────
   const addWebUser = (data) => {
     const newUser = { ...data, id: Date.now().toString(), createdAt: new Date().toISOString() };
-    setWebUsers(prev => [...prev, newUser]);
+    setWebUsers(prev => {
+      const updated = [...prev, newUser];
+      // Save immediately to localStorage and DB
+      localStorage.setItem('bronet_web_users', JSON.stringify(updated));
+      saveWebUsers(updated).catch(console.error);
+      return updated;
+    });
     return newUser;
   };
   const updateWebUser = (id, data) => {
-    setWebUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
+    setWebUsers(prev => {
+      const updated = prev.map(u => u.id === id ? { ...u, ...data } : u);
+      localStorage.setItem('bronet_web_users', JSON.stringify(updated));
+      saveWebUsers(updated).catch(console.error);
+      return updated;
+    });
     if (user?.id === id) {
       const updated = { ...user, ...data };
       setUser(updated);
       localStorage.setItem('bronet_current_user', JSON.stringify(updated));
     }
   };
-  const deleteWebUser = (id) => setWebUsers(prev => prev.filter(u => u.id !== id));
+  const deleteWebUser = (id) => {
+    setWebUsers(prev => {
+      const updated = prev.filter(u => u.id !== id);
+      localStorage.setItem('bronet_web_users', JSON.stringify(updated));
+      saveWebUsers(updated).catch(console.error);
+      return updated;
+    });
+  };
 
   // ── Roles CRUD ─────────────────────────────────────────────────────────────
   const addRole = (data) => {
