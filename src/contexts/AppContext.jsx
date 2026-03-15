@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { loadSettings, saveSettings as saveSettingsDB } from '../utils/db';
+import { loadSettings, saveSettings as saveSettingsDB, saveTrafficBatch, loadTrafficHistory as loadTrafficHistoryDB, pruneTrafficHistory } from '../utils/db';
 
 const AppContext = createContext(null);
 
@@ -41,6 +41,10 @@ export function AppProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('bronet_traffic_history') || '[]'); } catch { return []; }
   });
 
+  // Buffer for pending traffic points not yet flushed to DB
+  const pendingTrafficRef = useRef([]);
+  const lastFlushRef = useRef(Date.now());
+
   // ── Persist settings to localStorage + DB on change ──────────────────────
   const isFirstSettings = useRef(true);
   useEffect(() => {
@@ -52,7 +56,7 @@ export function AppProvider({ children }) {
   }, [settings]);
 
   useEffect(() => {
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - 365 * 24 * 60 * 60 * 1000; // 1 tahun
     const filtered = trafficHistory.filter(h => new Date(h.timestamp).getTime() > cutoff);
     localStorage.setItem('bronet_traffic_history', JSON.stringify(filtered));
   }, [trafficHistory]);
@@ -135,9 +139,22 @@ export function AppProvider({ children }) {
   }, [callMikrotik]);
 
   const saveTrafficData = useCallback((iface, rx, tx) => {
-    setTrafficHistory(prev => [...prev, {
-      timestamp: new Date().toISOString(), interface: iface, rx, tx,
-    }].slice(-10000));
+    const point = { timestamp: new Date().toISOString(), interface: iface, rx, tx };
+    setTrafficHistory(prev => [...prev, point].slice(-10000));
+
+    // Buffer for batch save to Supabase
+    pendingTrafficRef.current.push(point);
+
+    // Flush to Supabase every 2 minutes (120 seconds)
+    const now = Date.now();
+    if (now - lastFlushRef.current >= 300000) { // flush ke Supabase setiap 5 menit
+      lastFlushRef.current = now;
+      const toFlush = [...pendingTrafficRef.current];
+      pendingTrafficRef.current = [];
+      if (toFlush.length > 0) {
+        saveTrafficBatch(toFlush).catch(console.error);
+      }
+    }
   }, []);
 
   const getTrafficHistory = useCallback((iface, hours = 1) => {
@@ -147,7 +164,10 @@ export function AppProvider({ children }) {
 
   const clearTrafficHistory = useCallback(() => {
     setTrafficHistory([]);
+    pendingTrafficRef.current = [];
     localStorage.removeItem('bronet_traffic_history');
+    // Also clear from Supabase
+    pruneTrafficHistory(0).catch(console.error);
   }, []);
 
   return (
