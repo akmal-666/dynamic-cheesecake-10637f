@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { exportXLSX, fmtRp, fmtDate } from '../../utils/exportXlsx';
+import { loadAssets, saveAssets as saveAssetsDB } from '../../utils/db';
 import {
   Package, Plus, Edit, Trash2, Download, Search, X, Check,
   AlertCircle, Wrench, Monitor, Wifi, Server, HardDrive, Zap
@@ -72,7 +73,8 @@ function Field({ label, children, required, span }) {
 }
 
 export default function AssetManagement() {
-  const [assets,     setAssetsState] = useState(getAssets());
+  const [assets,     setAssetsState] = useState([]);
+  useEffect(() => { loadAssets().then(d => { if(d?.length) setAssetsState(d); }).catch(()=>{}); }, []);
   const [search,     setSearch]      = useState('');
   const [filterCat,  setFilterCat]   = useState('all');
   const [filterCond, setFilterCond]  = useState('all');
@@ -83,7 +85,7 @@ export default function AssetManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [viewMode, setViewMode] = useState('table'); // table | card
 
-  const setAssets = (d) => { setAssetsState(d); saveAssets(d); };
+  const setAssets = (d) => { setAssetsState(d); saveAssets(d); saveAssetsDB(d).catch(console.error); };
 
   const openAdd  = () => { setEditAsset(null); setForm({ ...EMPTY_FORM, purchaseDate: format(new Date(),'yyyy-MM-dd') }); setModalOpen(true); };
   const openEdit = (a) => { setEditAsset(a); setForm({ ...a }); setModalOpen(true); };
