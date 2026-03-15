@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { MOCK_PPP_SECRETS, MOCK_PPP_PROFILES, parseComment } from '../../utils/mockData';
 import {
   CreditCard, CheckCircle, Clock, AlertTriangle, RefreshCw,
@@ -73,6 +74,9 @@ const STATUS_CONFIG = {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Billing() {
   const { callMikrotik } = useApp();
+  const { hasPermission } = useAuth();
+  const canMarkLunasGlobal = hasPermission('billing-lunas');
+  const canSendWA = hasPermission('billing-wa');
   const [users,    setUsers]    = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [billing,  setBillingState] = useState([]);
@@ -498,7 +502,7 @@ export default function Billing() {
                             {(() => {
                               const reminderAfterLunas = record?.lastReminderAt && record?.paidAt
                                 && new Date(record.lastReminderAt) > new Date(record.paidAt);
-                              const canMarkLunas = status !== 'lunas' || reminderAfterLunas;
+                              const canMarkLunas = canMarkLunasGlobal && (status !== 'lunas' || reminderAfterLunas);
                               if (!record) return null;
                               return (
                                 <button
@@ -517,14 +521,14 @@ export default function Billing() {
                               );
                             })()}
                             {/* WA Web */}
-                            {phone && (
+                            {phone && canSendWA && (
                               <button onClick={() => openWAWeb(user, record)} title="Kirim via WA Web"
                                 className="p-1.5 rounded-lg text-green-400 hover:bg-green-400/10 transition-colors">
                                 <MessageCircle size={15}/>
                               </button>
                             )}
                             {/* Fonnte send */}
-                            {phone && waSettings.token && (
+                            {phone && canSendWA && waSettings.token && (
                               <button onClick={() => sendViaFonnte(user, record)} title="Kirim via Fonnte API"
                                 disabled={sendingWA}
                                 className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-400/10 transition-colors disabled:opacity-40">
