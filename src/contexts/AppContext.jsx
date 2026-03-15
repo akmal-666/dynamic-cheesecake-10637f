@@ -19,24 +19,40 @@ export function AppProvider({ children }) {
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
 
-  // ── Sync settings from DB on first load (for cross-device sharing) ─────────
+  // ── Sync settings from DB + auto-reconnect if was connected ─────────────────
   const initialSyncDone = useRef(false);
   useEffect(() => {
     loadSettings().then(dbSettings => {
       if (dbSettings && dbSettings.host && !initialSyncDone.current) {
         initialSyncDone.current = true;
-        setSettings(prev => {
-          // Only overwrite if DB has newer/different settings
-          const merged = { ...DEFAULT_SETTINGS, ...dbSettings, connected: false };
-          return merged;
-        });
+        setSettings(prev => ({ ...DEFAULT_SETTINGS, ...dbSettings, connected: prev.connected }));
       } else {
         initialSyncDone.current = true;
       }
     }).catch(() => { initialSyncDone.current = true; });
   }, []);
 
-  const [connectionStatus, setConnectionStatus] = useState('idle');
+  // ── Auto-reconnect on mount if settings have host ─────────────────────────
+  const autoConnectDone = useRef(false);
+  useEffect(() => {
+    if (autoConnectDone.current) return;
+    autoConnectDone.current = true;
+    // Small delay to allow settings to load from DB first
+    const timer = setTimeout(() => {
+      if (settingsRef.current.host && settingsRef.current.username) {
+        testConnection().catch(console.error);
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line
+
+  // Restore connection status from saved settings (persists across login/logout)
+  const [connectionStatus, setConnectionStatus] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('bronet_settings') || '{}');
+      return s.connected ? 'connected' : 'idle';
+    } catch { return 'idle'; }
+  });
   const [trafficHistory, setTrafficHistory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('bronet_traffic_history') || '[]'); } catch { return []; }
   });
