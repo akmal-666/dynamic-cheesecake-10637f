@@ -18,7 +18,19 @@ import UnpaidReport from './components/Reports/UnpaidReport';
 import AssetManagement from './components/Assets/AssetManagement';
 import MobileApp from './components/Mobile/MobileApp';
 
-// AccessDenied shown inside Layout when user lacks permission
+// Full-screen loading spinner
+function LoadingScreen() {
+  return (
+    <div className="fixed inset-0 bg-darker flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-12 h-12 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <div className="text-primary font-mono text-sm">BRONET</div>
+      </div>
+    </div>
+  );
+}
+
+// Access denied page inside Layout
 function AccessDenied() {
   return (
     <div className="flex items-center justify-center h-full min-h-[50vh]">
@@ -33,13 +45,26 @@ function AccessDenied() {
 
 // Single Layout wrapper — all authenticated pages go through here
 function AuthLayout({ permission, children }) {
-  const { user, hasPermission } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const { user, loading } = useAuth();
+  // Wait until auth state is resolved before redirecting
+  if (loading) return <LoadingScreen />;
+  if (!user)   return <Navigate to="/login" replace />;
   return (
     <Layout>
-      {permission && !hasPermission(permission) ? <AccessDenied /> : children}
+      {permission && !hasPermissionCheck(user, permission) ? <AccessDenied /> : children}
     </Layout>
   );
+}
+
+// Inline permission check (avoids hook-in-non-hook issue)
+function hasPermissionCheck(user, permission) {
+  if (!user) return false;
+  if (user.role === 'superadmin') return true;
+  try {
+    const roles = JSON.parse(localStorage.getItem('bronet_roles') || '[]');
+    const role = roles.find(r => r.id === user.role);
+    return role ? role.permissions.includes(permission) : false;
+  } catch { return false; }
 }
 
 function AppRoutes() {
