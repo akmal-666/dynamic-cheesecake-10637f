@@ -45,26 +45,15 @@ function AccessDenied() {
 
 // Single Layout wrapper — all authenticated pages go through here
 function AuthLayout({ permission, children }) {
-  const { user, loading } = useAuth();
-  // Wait until auth state is resolved before redirecting
+  const { user, loading, hasPermission } = useAuth();
+  // Wait until auth state resolved
   if (loading) return <LoadingScreen />;
   if (!user)   return <Navigate to="/login" replace />;
   return (
     <Layout>
-      {permission && !hasPermissionCheck(user, permission) ? <AccessDenied /> : children}
+      {permission && !hasPermission(permission) ? <AccessDenied /> : children}
     </Layout>
   );
-}
-
-// Inline permission check (avoids hook-in-non-hook issue)
-function hasPermissionCheck(user, permission) {
-  if (!user) return false;
-  if (user.role === 'superadmin') return true;
-  try {
-    const roles = JSON.parse(localStorage.getItem('bronet_roles') || '[]');
-    const role = roles.find(r => r.id === user.role);
-    return role ? role.permissions.includes(permission) : false;
-  } catch { return false; }
 }
 
 function AppRoutes() {
