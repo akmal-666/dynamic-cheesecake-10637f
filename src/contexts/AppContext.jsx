@@ -3,9 +3,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 const AppContext = createContext(null);
 
 const DEFAULT_SETTINGS = {
-  host: '103.66.198.187',
+  host: '88.123.188.1',
   port: '80',
-  username: 'audy_engin25',
+  username: 'admin1',
   password: 'mandiri123!',
   connected: false,
   lastCheck: null,
