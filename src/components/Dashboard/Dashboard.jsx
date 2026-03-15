@@ -311,7 +311,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          </div>
           {chartHistory.length === 0 ? (
             <div className="h-48 flex items-center justify-center text-gray-600 text-sm">Belum ada riwayat. Mulai monitoring untuk menyimpan data.</div>
           ) : (
