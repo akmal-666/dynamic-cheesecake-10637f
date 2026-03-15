@@ -105,7 +105,14 @@ export default function Dashboard() {
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
-  const historyData = getTrafficHistory(selectedIface, historyRange);
+  const [historyData, setHistoryData] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve(getTrafficHistory(selectedIface, historyRange)).then(data => {
+      if (!cancelled) setHistoryData(data || []);
+    });
+    return () => { cancelled = true; };
+  }, [selectedIface, historyRange, getTrafficHistory, showHistory]);
   const filteredHistory = filterDate ? historyData.filter(h => h.timestamp.startsWith(filterDate)) : historyData;
   const chartHistory = filteredHistory
     .filter((_, i, arr) => i % Math.max(1, Math.floor(arr.length / 60)) === 0)
