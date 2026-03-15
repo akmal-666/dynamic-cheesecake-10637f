@@ -173,7 +173,7 @@ export default function Settings() {
       </div>
 
       {activeTab === 'mikrotik' && <>
-      {/* Status banner */
+      {/* Status banner */}
       <div className={clsx('flex items-center gap-4 p-4 rounded-xl border',
         isConnected          ? 'bg-green-500/10 border-green-500/30' :
         testResult?.success === false ? 'bg-red-500/10 border-red-500/30' :
