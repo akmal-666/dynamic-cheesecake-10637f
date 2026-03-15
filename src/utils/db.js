@@ -200,11 +200,24 @@ export async function loadWebUsers() {
       .from('bronet_web_users')
       .select('*')
       .eq('install_id', INSTALL_ID);
-    if (!error && data?.length) return data;
+    if (error) { console.error('[DB] loadWebUsers error:', error.message); }
+    else if (data?.length) {
+      console.log('[DB] loadWebUsers got', data.length, 'users from Supabase');
+      // Normalize snake_case → camelCase for React app
+      return data.map(u => ({
+        id:        u.id,
+        username:  u.username,
+        password:  u.password,
+        name:      u.name,
+        email:     u.email,
+        role:      u.role,
+        active:    u.active,
+        createdAt: u.created_at,
+      }));
+    }
   }
   try {
     const s = localStorage.getItem(LS_WEB_USERS);
-    // Return parsed data, or empty array (AuthContext will use DEFAULT_USERS as fallback)
     return s ? JSON.parse(s) : [];
   } catch { return []; }
 }
@@ -212,14 +225,33 @@ export async function loadWebUsers() {
 export async function saveWebUsers(users) {
   localStorage.setItem(LS_WEB_USERS, JSON.stringify(users));
 
-  if (supabaseReady) {
-    await supabase.from('bronet_web_users').delete().eq('install_id', INSTALL_ID);
-    if (users.length > 0) {
-      await supabase.from('bronet_web_users').insert(
-        users.map(u => ({ ...u, install_id: INSTALL_ID }))
-      );
-    }
-  }
+  if (!supabaseReady) return;
+  try {
+    const { error: delErr } = await supabase
+      .from('bronet_web_users')
+      .delete()
+      .eq('install_id', INSTALL_ID);
+    if (delErr) { console.error('[DB] saveWebUsers delete error:', delErr.message); return; }
+
+    if (users.length === 0) return;
+
+    // Explicit mapping — only columns that exist in the table
+    const rows = users.map(u => ({
+      id:         String(u.id),
+      install_id: INSTALL_ID,
+      username:   u.username || '',
+      password:   u.password || '',
+      name:       u.name || '',
+      email:      u.email || '',
+      role:       u.role || 'operator',
+      active:     u.active !== false,
+      created_at: u.createdAt || u.created_at || new Date().toISOString(),
+    }));
+
+    const { error: insErr } = await supabase.from('bronet_web_users').insert(rows);
+    if (insErr) { console.error('[DB] saveWebUsers insert error:', insErr.message); }
+    else { console.log('[DB] saveWebUsers saved', rows.length, 'users to Supabase'); }
+  } catch (e) { console.error('[DB] saveWebUsers exception:', e.message); }
 }
 
 // ─── ROLES ────────────────────────────────────────────────────────────────────
@@ -242,14 +274,20 @@ export async function loadRoles() {
 export async function saveRoles(roles) {
   localStorage.setItem(LS_ROLES, JSON.stringify(roles));
 
-  if (supabaseReady) {
+  if (!supabaseReady) return;
+  try {
     await supabase.from('bronet_roles').delete().eq('install_id', INSTALL_ID);
-    if (roles.length > 0) {
-      await supabase.from('bronet_roles').insert(
-        roles.map(r => ({ ...r, install_id: INSTALL_ID }))
-      );
-    }
-  }
+    if (roles.length === 0) return;
+    const rows = roles.map(r => ({
+      id:          String(r.id),
+      install_id:  INSTALL_ID,
+      label:       r.label || '',
+      permissions: r.permissions || [],
+      editable:    r.editable !== false,
+    }));
+    const { error } = await supabase.from('bronet_roles').insert(rows);
+    if (error) { console.error('[DB] saveRoles error:', error.message); }
+  } catch (e) { console.error('[DB] saveRoles exception:', e.message); }
 }
 
 // ─── REMINDER LOGS ────────────────────────────────────────────────────────────
