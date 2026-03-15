@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { loadWebUsers, saveWebUsers, loadRoles, saveRoles } from '../utils/db';
 
 const AuthContext = createContext(null);
 
@@ -35,13 +36,13 @@ const DEFAULT_USERS = [
     role: 'operator', email: 'operator@bronet.id', active: true, createdAt: new Date().toISOString() },
 ];
 
-function loadRoles() {
+function loadRolesDefault() {
   try {
     const saved = localStorage.getItem('bronet_roles');
     return saved ? JSON.parse(saved) : DEFAULT_ROLES;
   } catch { return DEFAULT_ROLES; }
 }
-function saveRolesLS(roles) {
+function saveRolesLS_old(roles) {
   localStorage.setItem('bronet_roles', JSON.stringify(roles));
 }
 
@@ -52,24 +53,31 @@ export const ROLES = Object.fromEntries(
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [webUsers, setWebUsers] = useState(() => {
-    const saved = localStorage.getItem('bronet_web_users');
-    return saved ? JSON.parse(saved) : DEFAULT_USERS;
-  });
+  const [webUsers, setWebUsers] = useState(DEFAULT_USERS);
+  const [dbLoaded, setDbLoaded] = useState(false);
   const [roles, setRoles] = useState(loadRoles);
 
+  // Load data from DB on mount
   useEffect(() => {
+    Promise.all([loadWebUsers(), loadRoles()]).then(([users, roles]) => {
+      if (users && users.length > 0) setWebUsers(users);
+      if (roles && roles.length > 0) setRoles(roles);
+      setDbLoaded(true);
+    }).catch(() => setDbLoaded(true));
+
     const savedUser = localStorage.getItem('bronet_current_user');
-    if (savedUser) setUser(JSON.parse(savedUser));
+    if (savedUser) {
+      try { setUser(JSON.parse(savedUser)); } catch {}
+    }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('bronet_web_users', JSON.stringify(webUsers));
-  }, [webUsers]);
+    if (dbLoaded) saveWebUsers(webUsers);
+  }, [webUsers, dbLoaded]);
 
   useEffect(() => {
-    saveRolesLS(roles);
-  }, [roles]);
+    if (dbLoaded) saveRoles(roles);
+  }, [roles, dbLoaded]);
 
   const login = (username, password) => {
     const found = webUsers.find(u => u.username === username && u.password === password && u.active);
