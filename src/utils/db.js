@@ -201,13 +201,6 @@ export async function saveAssets(assets) {
 // ─── WEB USERS ────────────────────────────────────────────────────────────────
 const LS_WEB_USERS = 'bronet_web_users';
 
-const DEFAULT_WEB_USERS = [
-  { id: '1', username: 'admin', password: 'admin123', name: 'Administrator',
-    role: 'superadmin', email: 'admin@bronet.id', active: true, createdAt: new Date().toISOString() },
-  { id: '2', username: 'operator', password: 'op123', name: 'Operator Bronet',
-    role: 'operator', email: 'operator@bronet.id', active: true, createdAt: new Date().toISOString() },
-];
-
 export async function loadWebUsers() {
   if (supabaseReady) {
     const { data, error } = await supabase
@@ -218,8 +211,9 @@ export async function loadWebUsers() {
   }
   try {
     const s = localStorage.getItem(LS_WEB_USERS);
-    return s ? JSON.parse(s) : DEFAULT_WEB_USERS;
-  } catch { return DEFAULT_WEB_USERS; }
+    // Return parsed data, or empty array (AuthContext will use DEFAULT_USERS as fallback)
+    return s ? JSON.parse(s) : [];
+  } catch { return []; }
 }
 
 export async function saveWebUsers(users) {
@@ -248,8 +242,8 @@ export async function loadRoles() {
   }
   try {
     const s = localStorage.getItem(LS_ROLES);
-    return s ? JSON.parse(s) : null; // null = use defaults
-  } catch { return null; }
+    return s ? JSON.parse(s) : []; // empty = use defaults in AuthContext
+  } catch { return []; }
 }
 
 export async function saveRoles(roles) {
