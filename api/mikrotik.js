@@ -1,12 +1,8 @@
-const http  = require('http');
-const https = require('https');
+import http  from 'http';
+import https from 'https';
 
-// Beritahu Vercel untuk TIDAK auto-parse body
-// kita parse manual agar lebih kontrol
 export const config = {
-  api: {
-    bodyParser: true,
-  },
+  api: { bodyParser: true },
 };
 
 const CORS = {
@@ -32,7 +28,7 @@ function makeRequest(url, method, auth, bodyData) {
         'Authorization': 'Basic ' + auth,
         'Accept': 'application/json',
         ...(reqBody ? {
-          'Content-Type':  'application/json',
+          'Content-Type':   'application/json',
           'Content-Length': Buffer.byteLength(reqBody),
         } : {}),
       },
@@ -52,15 +48,13 @@ function makeRequest(url, method, auth, bodyData) {
   });
 }
 
-module.exports = async function handler(req, res) {
-  // Set CORS
+export default async function handler(req, res) {
   Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Vercel dengan bodyParser:true sudah parse req.body otomatis
     const body = req.body || {};
     const { host, port = 80, username, password, path, method = 'GET', data } = body;
 
@@ -84,7 +78,7 @@ module.exports = async function handler(req, res) {
 
         if (result.statusCode === 404) {
           lastStatus = 404;
-          lastError  = 'REST API tidak ditemukan. Pastikan RouterOS v7.1+ dan service www aktif.';
+          lastError  = 'REST API tidak ditemukan. Pastikan RouterOS v7.1+';
           continue;
         }
 
@@ -99,12 +93,11 @@ module.exports = async function handler(req, res) {
 
     const hint = lastStatus === 404
       ? 'Winbox > IP > Services > www > Enable. RouterOS minimal v7.1'
-      : `Pastikan IP ${host} bisa diakses dari internet dan port ${port} terbuka`;
+      : `Pastikan IP ${host} dapat diakses dari internet dan port ${port} terbuka`;
 
     return res.status(503).json({ error: lastError, hint, tried: candidates });
 
   } catch (err) {
-    // Catch semua error agar tidak 500
     return res.status(500).json({ error: 'Server error: ' + err.message });
   }
-};
+}
