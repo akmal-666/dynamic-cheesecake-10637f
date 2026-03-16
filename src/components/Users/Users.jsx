@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import { MOCK_PPP_SECRETS, MOCK_PPP_ACTIVE, parseComment, buildComment } from '../../utils/mockData';
+import { MOCK_PPP_SECRETS, MOCK_PPP_ACTIVE, MOCK_PPP_PROFILES, parseComment, buildComment, generateUsername, generatePassword, generateCustomerId } from '../../utils/mockData';
 import { Plus, Edit2, Trash2, Search, RefreshCw, User, Phone, Mail, Wifi, WifiOff, CheckCircle, XCircle, Eye, EyeOff, Copy, Package, Calendar } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
 const EMPTY_FORM = {
-  name: '', password: '', profile: 'paket-10mbps', service: 'pppoe',
-  phone: '', email: '', installDate: '', comment: '', disabled: false,
+  fullName: '', name: '', password: '', profile: 'paket-10mbps', service: 'pppoe',
+  phone: '', email: '', installDate: '', customerId: '', disabled: false,
   'local-address': '192.168.1.1', 'remote-address': '',
 };
 
@@ -63,6 +63,7 @@ export default function Users() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
+  const [fetchingIP, setFetchingIP] = useState(false);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -94,11 +95,63 @@ export default function Users() {
     setLoading(false);
   };
 
-  const openAdd = () => { setEditUser(null); setForm(EMPTY_FORM); setModalOpen(true); };
+  const fetchAutoIP = async () => {
+    setFetchingIP(true);
+    // Get local-address from bridge LAN gateway
+    const bridgeRes = await callMikrotik('/ip/address', 'GET');
+    let localAddr = '192.168.1.1';
+    if (bridgeRes.success && Array.isArray(bridgeRes.data)) {
+      const bridge = bridgeRes.data.find(a =>
+        !a.disabled || a.disabled === 'false'
+      );
+      if (bridge?.address) {
+        localAddr = bridge.address.split('/')[0];
+      }
+    }
+
+    // Get last used remote-address from PPPoE secrets
+    let remoteAddr = '';
+    const secretsRes = await callMikrotik('/ppp/secret', 'GET');
+    if (secretsRes.success && Array.isArray(secretsRes.data)) {
+      const withRemote = secretsRes.data
+        .filter(s => s['remote-address'] && s['remote-address'].match(/^\d+\.\d+\.\d+\.\d+$/))
+        .map(s => s['remote-address']);
+      if (withRemote.length > 0) {
+        // Sort IPs and get the last one, then increment
+        const sorted = withRemote.sort((a, b) => {
+          const an = a.split('.').map(Number);
+          const bn = b.split('.').map(Number);
+          for (let i = 0; i < 4; i++) { if (an[i] !== bn[i]) return an[i] - bn[i]; }
+          return 0;
+        });
+        const last = sorted[sorted.length - 1].split('.');
+        last[3] = String(Math.min(parseInt(last[3]) + 1, 254));
+        remoteAddr = last.join('.');
+      }
+    }
+    setFetchingIP(false);
+    return { localAddr, remoteAddr };
+  };
+
+  const openAdd = async () => {
+    setEditUser(null);
+    const custId = generateCustomerId();
+    const installDate = new Date().toISOString().split('T')[0];
+    // Start with empty form, then fill IPs
+    setForm({ ...EMPTY_FORM, customerId: custId, installDate });
+    setModalOpen(true);
+    // Fetch IPs in background
+    const { localAddr, remoteAddr } = await fetchAutoIP();
+    setForm(prev => ({
+      ...prev,
+      'local-address': localAddr,
+      'remote-address': remoteAddr,
+    }));
+  };
   const openEdit = (u) => {
-    const { phone, email, installDate } = parseComment(u.comment);
+    const { phone, email, installDate, fullName, customerId } = parseComment(u.comment);
     setEditUser(u);
-    setForm({ ...u, phone, email, installDate, disabled: u.disabled === 'true' });
+    setForm({ ...u, phone, email, installDate, fullName: fullName || '', customerId: customerId || '', disabled: u.disabled === 'true' });
     setModalOpen(true);
   };
 
@@ -110,7 +163,7 @@ export default function Users() {
       password: form.password,
       profile: form.profile,
       service: form.service || 'pppoe',
-      comment: buildComment(form.phone, form.email, form.installDate),
+      comment: buildComment(form.phone, form.email, form.installDate, form.fullName, form.customerId),
       'local-address': form['local-address'],
       'remote-address': form['remote-address'],
       disabled: form.disabled ? 'true' : 'false',
@@ -127,7 +180,7 @@ export default function Users() {
       if (editUser) {
         toast.success('User berhasil diupdate di Mikrotik!');
       } else {
-        setSuccessInfo({ ...payload, password: form.password, installDate: form.installDate });
+        setSuccessInfo({ ...payload, password: form.password, installDate: form.installDate, fullName: form.fullName, customerId: form.customerId });
       }
     } else if (!usingMikrotik) {
       // Offline/demo mode — save to localStorage
@@ -145,7 +198,7 @@ export default function Users() {
       if (editUser) {
         toast.success('User diupdate (tersimpan lokal)');
       } else {
-        setSuccessInfo({ ...payload, password: form.password, installDate: form.installDate });
+        setSuccessInfo({ ...payload, password: form.password, installDate: form.installDate, fullName: form.fullName, customerId: form.customerId });
       }
     } else {
       toast.error('Gagal menyimpan ke Mikrotik: ' + result.error);
@@ -264,11 +317,10 @@ export default function Users() {
             <thead>
               <tr className="border-b border-border bg-darker/50">
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">STATUS</th>
-                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">USERNAME</th>
+                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">ID PELANGGAN</th>
+                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">NAMA / USERNAME</th>
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">PROFIL</th>
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">NO. HP</th>
-                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">EMAIL</th>
-                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">SERVICE</th>
                 <th className="text-right px-4 py-3 text-xs text-gray-500 font-medium">AKSI</th>
               </tr>
             </thead>
@@ -336,22 +388,59 @@ export default function Users() {
       {/* Add/Edit Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editUser ? 'Edit User PPPoE' : 'Tambah User PPPoE'}>
         <form onSubmit={handleSubmit} className="space-y-0">
+          {/* Full Name */}
+          <FormField label="Nama Lengkap" required hint="Username & password akan di-generate otomatis dari nama ini">
+            <input value={form.fullName}
+              onChange={e => {
+                const fn = e.target.value;
+                const uname = generateUsername(fn);
+                setForm(p => ({
+                  ...p,
+                  fullName: fn,
+                  name: editUser ? p.name : uname,
+                  password: editUser ? p.password : (p.password || generatePassword()),
+                }));
+              }}
+              className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm"
+              placeholder="Budi Santoso" />
+          </FormField>
+
           <div className="grid grid-cols-2 gap-x-4">
-            <FormField label="Username" required>
+            <FormField label="Username PPPoE" required hint="Auto dari nama lengkap">
               <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                 className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono" required
-                placeholder="username_pelanggan" disabled={!!editUser} />
+                placeholder="budi.santoso" disabled={!!editUser} />
             </FormField>
-            <FormField label="Password" required>
-              <div className="relative">
-                <input type={showPass ? 'text' : 'password'} value={form.password}
-                  onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                  className="input-cyber w-full px-3 py-2.5 pr-9 rounded-lg text-sm mono" required placeholder="password" />
-                <button type="button" onClick={() => setShowPass(p => !p)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
-                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+            <FormField label="Password PPPoE" required hint="Auto-generate, bisa diubah">
+              <div className="flex gap-1">
+                <div className="relative flex-1">
+                  <input type={showPass ? 'text' : 'password'} value={form.password}
+                    onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                    className="input-cyber w-full px-3 py-2.5 pr-9 rounded-lg text-sm mono" required placeholder="password" />
+                  <button type="button" onClick={() => setShowPass(p => !p)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <button type="button" onClick={() => setForm(p => ({ ...p, password: generatePassword() }))}
+                  title="Generate ulang" className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 text-xs">
+                  ↺
                 </button>
               </div>
+            </FormField>
+          </div>
+
+          {/* Customer ID */}
+          <div className="grid grid-cols-2 gap-x-4">
+            <FormField label="ID Pelanggan" hint="Auto-generate, bisa diubah">
+              <input value={form.customerId} onChange={e => setForm(p => ({ ...p, customerId: e.target.value }))}
+                className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono"
+                placeholder="BRN-2401-XXXX" />
+            </FormField>
+            <FormField label="Tanggal Pemasangan" hint="Untuk hitung jatuh tempo tagihan">
+              <input type="date" value={form.installDate}
+                onChange={e => setForm(p => ({ ...p, installDate: e.target.value }))}
+                className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono" />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-x-4">
@@ -385,11 +474,7 @@ export default function Users() {
                 className="input-cyber w-full pl-8 pr-3 py-2.5 rounded-lg text-sm" placeholder="email@example.com" />
             </div>
           </FormField>
-          <FormField label="Tanggal Pemasangan" hint="Digunakan untuk hitung jatuh tempo tagihan (pemasangan + 30 hari)">
-            <input type="date" value={form.installDate}
-              onChange={e => setForm(p => ({ ...p, installDate: e.target.value }))}
-              className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono" />
-          </FormField>
+
           <div className="grid grid-cols-2 gap-x-4">
             <FormField label="Local Address">
               <input value={form['local-address']} onChange={e => setForm(p => ({ ...p, 'local-address': e.target.value }))}
@@ -445,6 +530,8 @@ export default function Users() {
           </div>
           <div className="bg-darker border border-border rounded-xl overflow-hidden">
             {[
+              { icon: User, label: 'ID Pelanggan', value: successInfo?.customerId || '-', mono: true },
+              { icon: User, label: 'Nama Lengkap', value: successInfo?.fullName || '-' },
               { icon: User, label: 'Username', value: successInfo?.name, mono: true },
               { icon: Eye, label: 'Password', value: successInfo?.password, mono: true },
               { icon: Package, label: 'Paket / Profile', value: successInfo?.profile },
