@@ -107,7 +107,11 @@ export function AppProvider({ children }) {
   const callMikrotik = useCallback(async (path, method = 'GET', data = null) => {
     const s = settingsRef.current;
     try {
-      const response = await fetch('/.netlify/functions/mikrotik', {
+      // Auto-detect: Netlify vs Cloudflare Pages
+      const endpoint = window.location.hostname.includes('netlify.app')
+        ? '/.netlify/functions/mikrotik'
+        : '/mikrotik';
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
