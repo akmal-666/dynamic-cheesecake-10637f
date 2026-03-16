@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/mikrotik", "destination": "/api/mikrotik.js" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
