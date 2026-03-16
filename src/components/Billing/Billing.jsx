@@ -99,12 +99,12 @@ export default function Billing() {
   const [sendingWA,    setSendingWA]    = useState(false);
   const [testingWA,    setTestingWA]    = useState(false);
 
-  const profileExtras = getProfileExtras();
-
   // ── load ────────────────────────────────────────────────────────────
   const loadData = async () => {
     setLoading(true);
     try {
+    // Re-read profileExtras fresh on every load (picks up price changes from Profiles menu)
+    const profileExtras = getProfileExtras();
     const [usersR, profilesR] = await Promise.all([
       callMikrotik('/ppp/secret', 'GET'),
       callMikrotik('/ppp/profile', 'GET'),
@@ -446,14 +446,14 @@ export default function Billing() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-darker/50">
-                    {['STATUS','USERNAME','PAKET','HARGA','NO. HP','JATUH TEMPO','SISA','AKSI'].map(h => (
+                    {['STATUS','ID PELANGGAN','USERNAME','PAKET','HARGA','NO. HP','JATUH TEMPO','SISA','AKSI'].map(h => (
                       <th key={h} className={clsx('px-4 py-3 text-xs text-gray-500 font-medium', h === 'AKSI' ? 'text-right' : 'text-left')}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={8} className="text-center py-12 text-gray-600">
+                    <tr><td colSpan={9} className="text-center py-12 text-gray-600">
                       <RefreshCw size={24} className="spinner mx-auto mb-2"/>Memuat...
                     </td></tr>
                   ) : filtered.map(user => {
@@ -469,6 +469,14 @@ export default function Billing() {
                           <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border font-semibold', cfg.bg, cfg.color)}>
                             <cfg.icon size={11}/>{cfg.label}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {(() => { const { customerId, fullName } = parseComment(user.comment); return (
+                            <div>
+                              <div className="text-xs mono text-primary/80">{customerId || '-'}</div>
+                              {fullName && <div className="text-xs text-gray-500">{fullName}</div>}
+                            </div>
+                          );})()}
                         </td>
                         <td className="px-4 py-3 mono font-medium text-white">{user.name}</td>
                         <td className="px-4 py-3">
