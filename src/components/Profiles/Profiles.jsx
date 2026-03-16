@@ -101,12 +101,14 @@ export default function Profiles() {
     setExtras(newExtras);
 
     const updatedProfile = { ...mikrotikPayload, _price: form._price, _description: form._description };
+    let newProfiles;
     if (editProfile) {
-      setProfiles(prev => prev.map(p => p['.id'] === editProfile['.id'] ? { ...p, ...updatedProfile } : p));
+      newProfiles = profiles.map(p => p['.id'] === editProfile['.id'] ? { ...p, ...updatedProfile } : p);
     } else {
-      setProfiles(prev => [...prev, { ...updatedProfile, '.id': '*' + Date.now() }]);
+      newProfiles = [...profiles, { ...updatedProfile, '.id': '*' + Date.now() }];
     }
-    localStorage.setItem('bronet_profiles', JSON.stringify(profiles));
+    setProfiles(newProfiles);
+    localStorage.setItem('bronet_profiles', JSON.stringify(newProfiles));
 
     toast.success(editProfile ? 'Profil berhasil diupdate!' : 'Profil berhasil ditambahkan!');
     setModalOpen(false);
