@@ -97,15 +97,22 @@ export default function Users() {
 
   const fetchAutoIP = async () => {
     setFetchingIP(true);
-    // Get local-address from bridge LAN gateway
+    // Get local-address from bridgelan interface specifically
     const bridgeRes = await callMikrotik('/ip/address', 'GET');
-    let localAddr = '192.168.1.1';
+    let localAddr = '172.16.10.1'; // fallback default
     if (bridgeRes.success && Array.isArray(bridgeRes.data)) {
-      const bridge = bridgeRes.data.find(a =>
-        !a.disabled || a.disabled === 'false'
+      // Priority: bridgelan > bridge > any non-WAN interface
+      const bridgeLan = bridgeRes.data.find(a =>
+        a.interface && a.interface.toLowerCase().includes('bridgelan') &&
+        a.disabled !== 'true'
       );
-      if (bridge?.address) {
-        localAddr = bridge.address.split('/')[0];
+      const bridgeAny = bridgeRes.data.find(a =>
+        a.interface && a.interface.toLowerCase().includes('bridge') &&
+        a.disabled !== 'true'
+      );
+      const found = bridgeLan || bridgeAny;
+      if (found?.address) {
+        localAddr = found.address.split('/')[0];
       }
     }
 
@@ -320,7 +327,7 @@ export default function Users() {
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">ID PELANGGAN</th>
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">NAMA / USERNAME</th>
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">PROFIL</th>
-                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">NO. HP</th>
+                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium">NO. HP / EMAIL</th>
                 <th className="text-right px-4 py-3 text-xs text-gray-500 font-medium">AKSI</th>
               </tr>
             </thead>
@@ -335,7 +342,7 @@ export default function Users() {
                 </td></tr>
               ) : filtered.map(u => {
                 const online = isOnline(u.name);
-                const { phone, email } = parseComment(u.comment);
+                const { phone, email, fullName, customerId } = parseComment(u.comment);
                 const disabled = u.disabled === 'true';
                 return (
                   <tr key={u['.id']} className="table-row border-b border-border/50 last:border-0">
@@ -349,13 +356,24 @@ export default function Users() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 mono font-medium text-white">{u.name}</td>
+                    {/* ID Pelanggan */}
+                    <td className="px-4 py-3">
+                      <div className="text-xs mono text-primary/80">{customerId || '-'}</div>
+                    </td>
+                    {/* Nama / Username */}
+                    <td className="px-4 py-3">
+                      {fullName && <div className="text-sm text-white font-medium">{fullName}</div>}
+                      <div className="mono text-gray-400 text-xs mt-0.5">{u.name}</div>
+                    </td>
+                    {/* Profil */}
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs mono">{u.profile}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-400 mono text-xs">{phone || '-'}</td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">{email || '-'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{u.service || 'pppoe'}</td>
+                    {/* No. HP */}
+                    <td className="px-4 py-3">
+                      <div className="text-gray-400 mono text-xs">{phone || '-'}</div>
+                      {email && <div className="text-gray-600 text-xs mt-0.5">{email}</div>}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => toggleDisable(u)}
