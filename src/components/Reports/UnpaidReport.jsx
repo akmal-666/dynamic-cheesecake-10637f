@@ -155,9 +155,13 @@ export default function UnpaidReport() {
     exportXLSX([
       {
         name: 'User Belum Bayar',
-        headers: ['No','Username','Paket','Harga/bln','No. HP','Email','Jatuh Tempo','Hari Telat/Sisa','Status','Disabled'],
-        rows: unpaidUsers.map(({ user:u, rec, status, phone, email, price, daysOver, daysLeft },i) => [
+        headers: ['No','ID Pelanggan','Nama Lengkap','Username','Paket','Harga/bln','No. HP','Email','Jatuh Tempo','Hari Telat/Sisa','Status','Disabled'],
+        rows: unpaidUsers.map(({ user:u, rec, status, phone, email, price, daysOver, daysLeft },i) => {
+          const parsed = parseComment(u.comment);
+          return [
           i+1,
+          parsed.customerId || '-',
+          parsed.fullName || '-',
           u.name,
           u.profile,
           fmtRp(price),
@@ -167,8 +171,9 @@ export default function UnpaidReport() {
           status === 'overdue' ? `Telat ${daysOver} hari` : daysLeft !== null ? `Sisa ${daysLeft} hari` : '-',
           status === 'overdue' ? 'TERLAMBAT' : status === 'due-soon' ? 'SEGERA JT' : 'BELUM ADA DATA',
           u.disabled === 'true' ? 'Nonaktif' : 'Aktif',
-        ]),
-        colWidths: [5,18,16,16,15,25,16,16,14,10],
+          ];
+        }),
+        colWidths: [5,14,18,18,16,16,15,25,16,16,14,10],
       },
       {
         name: 'Ringkasan',
@@ -254,17 +259,17 @@ export default function UnpaidReport() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-darker/50">
-              {['STATUS','USERNAME','PAKET','HARGA','NO. HP','JATUH TEMPO','KETERLAMBATAN','AKSI'].map((h,i) => (
+              {['STATUS','ID PELANGGAN','USERNAME','PAKET','HARGA','NO. HP','JATUH TEMPO','KETERLAMBATAN','AKSI'].map((h,i) => (
                 <th key={h} className={clsx('px-4 py-3 text-xs text-gray-500 font-medium', i===7?'text-right':'text-left')}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-600">
+                <tr><td colSpan={9} className="text-center py-12 text-gray-600">
                   <RefreshCw size={22} className="spinner mx-auto mb-2"/>Memuat...
                 </td></tr>
               ) : !unpaidUsers.length ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-600">
+                <tr><td colSpan={9} className="text-center py-12 text-gray-600">
                   <UserX size={36} className="mx-auto mb-2 opacity-30"/>Semua user sudah lunas!
                 </td></tr>
               ) : unpaidUsers.map(row => {
@@ -276,6 +281,14 @@ export default function UnpaidReport() {
                         {row.status === 'overdue' && <AlertTriangle size={10}/>}
                         {cfg.label}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => { const { customerId, fullName } = parseComment(row.user.comment); return (
+                        <div>
+                          <div className="text-xs mono text-primary/80">{customerId || '-'}</div>
+                          {fullName && <div className="text-xs text-gray-500">{fullName}</div>}
+                        </div>
+                      );})()}
                     </td>
                     <td className="px-4 py-3 mono font-medium text-white">{row.user.name}</td>
                     <td className="px-4 py-3"><span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded mono">{row.user.profile}</span></td>
