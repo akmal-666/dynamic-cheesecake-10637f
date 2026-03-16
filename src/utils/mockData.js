@@ -12,31 +12,31 @@ export const MOCK_INTERFACES = [
 export const MOCK_PPP_SECRETS = [
   {
     '.id': '*1', name: 'pelanggan001', password: 'pass001', profile: 'paket-10mbps',
-    service: 'pppoe', comment: '08123456789|pelanggan001@gmail.com|2024-01-01',
+    service: 'pppoe', comment: '08123456789|pelanggan001@gmail.com|2024-01-01|Pelanggan Satu|BRN-2401-AAA1',
     disabled: 'false', 'local-address': '192.168.1.1', 'remote-address': '',
     'last-logged-out': '2024-01-10 08:30:00',
   },
   {
     '.id': '*2', name: 'pelanggan002', password: 'pass002', profile: 'paket-20mbps',
-    service: 'pppoe', comment: '08234567890|pelanggan002@gmail.com|2024-01-05',
+    service: 'pppoe', comment: '08234567890|pelanggan002@gmail.com|2024-01-05|Pelanggan Dua|BRN-2401-BBB2',
     disabled: 'false', 'local-address': '192.168.1.1', 'remote-address': '',
     'last-logged-out': '2024-01-09 14:20:00',
   },
   {
     '.id': '*3', name: 'pelanggan003', password: 'pass003', profile: 'paket-5mbps',
-    service: 'pppoe', comment: '08345678901|pelanggan003@yahoo.com|2024-01-10',
+    service: 'pppoe', comment: '08345678901|pelanggan003@yahoo.com|2024-01-10|Pelanggan Tiga|BRN-2401-CCC3',
     disabled: 'true', 'local-address': '192.168.1.1', 'remote-address': '',
     'last-logged-out': '2024-01-01 00:00:00',
   },
   {
     '.id': '*4', name: 'pelanggan004', password: 'pass004', profile: 'paket-50mbps',
-    service: 'pppoe', comment: '08456789012|pelanggan004@gmail.com|2024-01-15',
+    service: 'pppoe', comment: '08456789012|pelanggan004@gmail.com|2024-01-15|Pelanggan Empat|BRN-2401-DDD4',
     disabled: 'false', 'local-address': '192.168.1.1', 'remote-address': '',
     'last-logged-out': '2024-01-10 10:00:00',
   },
   {
     '.id': '*5', name: 'pelanggan005', password: 'pass005', profile: 'paket-10mbps',
-    service: 'pppoe', comment: '08567890123|budi.santoso@gmail.com|2024-01-20',
+    service: 'pppoe', comment: '08567890123|budi.santoso@gmail.com|2024-01-20|Budi Santoso|BRN-2401-EEE5',
     disabled: 'false', 'local-address': '192.168.1.1', 'remote-address': '',
     'last-logged-out': '2024-01-08 16:45:00',
   },
@@ -106,15 +106,42 @@ export function formatBps(bps) {
 }
 
 export function parseComment(comment) {
-  if (!comment) return { phone: '', email: '', installDate: '' };
+  if (!comment) return { phone: '', email: '', installDate: '', fullName: '', customerId: '' };
   const parts = comment.split('|');
   return {
-    phone: parts[0]?.trim() || '',
-    email: parts[1]?.trim() || '',
-    installDate: parts[2]?.trim() || '',
+    phone:      parts[0]?.trim() || '',
+    email:      parts[1]?.trim() || '',
+    installDate:parts[2]?.trim() || '',
+    fullName:   parts[3]?.trim() || '',
+    customerId: parts[4]?.trim() || '',
   };
 }
 
-export function buildComment(phone, email, installDate = '') {
-  return `${phone}|${email}|${installDate}`;
+export function buildComment(phone, email, installDate = '', fullName = '', customerId = '') {
+  return `${phone}|${email}|${installDate}|${fullName}|${customerId}`;
+}
+
+// Generate username from full name: "Budi Santoso" → "budi.santoso"
+export function generateUsername(fullName) {
+  if (!fullName) return '';
+  return fullName.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove accents
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .split(/\s+/)
+    .join('.');
+}
+
+// Generate random alphanumeric password
+export function generatePassword(length = 8) {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789'; // no confusing chars
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+// Generate customer ID: BRN-YYYYMM-XXXX
+export function generateCustomerId() {
+  const now = new Date();
+  const yymm = now.getFullYear().toString().slice(2) + String(now.getMonth()+1).padStart(2,'0');
+  const rand = Math.random().toString(36).slice(2,6).toUpperCase();
+  return `BRN-${yymm}-${rand}`;
 }
