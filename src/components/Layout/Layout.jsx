@@ -27,6 +27,7 @@ const navItems = [
   { path: '/banners',    label: 'Banner Management',    icon: Image,           permission: 'banners' },
   { path: '/payment-info', label: 'Info Pembayaran',    icon: Banknote,        permission: 'payment-info' },
   { path: '/tickets',    label: 'Tiket Aduan',          icon: Ticket,          permission: 'tickets' },
+  { path: '/customers',  label: 'Akun Customer Portal',  icon: Users,           permission: 'customers' },
   // Admin
   { path: '/settings',   label: 'Pengaturan',           icon: Settings,        permission: 'settings' },
   { path: '/usermgmt',   label: 'User Management',      icon: Shield,          permission: 'usermgmt' },
