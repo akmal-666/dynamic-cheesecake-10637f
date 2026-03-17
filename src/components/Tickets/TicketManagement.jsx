@@ -38,7 +38,7 @@ export default function TicketManagement() {
   const msgEndRef = useRef();
 
   useEffect(() => { fetchTickets(); }, []);
-  useEffect(() => { if (selected) fetchMessages(selected.id); }, [selected]);
+  useEffect(() => { if (selected) fetchMessages(selected); }, [selected]);
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const fetchTickets = async () => {
@@ -48,8 +48,9 @@ export default function TicketManagement() {
     setLoading(false);
   };
 
-  const fetchMessages = async (ticketId) => {
-    const msgs = await loadTicketMessages(ticketId);
+  const fetchMessages = async (ticket) => {
+    const key = ticket?.ticket_no || String(ticket?.id || ticket);
+    const msgs = await loadTicketMessages(key);
     setMessages(msgs || []);
   };
 
@@ -66,8 +67,8 @@ export default function TicketManagement() {
     if (!reply.trim() || !selected) return;
     setSending(true);
     const msg = {
-      id: Date.now(),
-      ticket_id:   selected.id,
+      id:          String(Date.now()),
+      ticket_id:   selected.ticket_no || String(selected.id), // use ticket_no for consistency
       sender_type: 'admin',
       sender_name: user?.name || 'Admin',
       message:     reply.trim(),
