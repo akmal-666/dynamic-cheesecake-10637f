@@ -146,7 +146,7 @@ export default function Billing() {
         updated.push({
           username:    u.name,
           profile:     u.profile,
-          price,
+          price: Number(price) || 0,
           installDate: installDate || format(new Date(), 'yyyy-MM-dd'),
           dueDate:     calcDueDate(installDate || null),
           paidAt:      null,
@@ -156,9 +156,35 @@ export default function Billing() {
       } else {
         let needsUpdate = false;
         const upd = { ...exists };
-        // Sync price if changed
-        if (price && String(upd.price) !== String(price)) {
-          upd.price = price;
+        // Always re-read price from extras on load — fixes Rp 0 from stale records
+        const freshExtra = profileExtras[u.profile] || {};
+        const freshProf  = rawProfiles.find(p => p.name === u.profile);
+        const freshPrice = Number(freshExtra._price || freshProf?._price || 0);
+        // Sync price: update jika extras punya harga BERBEDA dari yang tersimpan
+        if (Number(upd.price) !== freshPrice) {
+          upd.price = freshPrice;
+          needsUpdate = true;
+        }
+        // Sync price always — force update from extras on every loadData
+        // This fixes stale Rp 0 prices when extras were set after billing was created
+        const newPrice = Number(price) || 0;
+        const oldPrice = Number(upd.price) || 0;
+        if (newPrice !== oldPrice) {
+          upd.price = newPrice;
+          needsUpdate = true;
+        } else if (newPrice > 0 && oldPrice === 0) {
+          // Force update if extras now have price but billing still has 0
+          upd.price = newPrice;
+          needsUpdate = true;
+        }
+        // Sync profile name if changed (user moved to different package)
+        if (upd.profile !== u.profile) {
+          upd.profile = u.profile;
+          // Re-read price for new profile
+          const newExtra = profileExtras[u.profile] || {};
+          const newProf  = rawProfiles.find(p => p.name === u.profile);
+          const profilePrice = Number(newExtra._price || newProf?._price || 0);
+          upd.price = profilePrice;
           needsUpdate = true;
         }
         // Sync installDate if changed
