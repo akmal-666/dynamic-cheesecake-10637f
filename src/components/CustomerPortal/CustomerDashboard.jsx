@@ -88,10 +88,43 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
     });
   }, []);
 
+  // Use ticket_no as consistent key between portal and admin
+  const getTicketKey = (t) => t?.ticket_no || String(t?.id);
+
+  const refreshMessages = async (ticket) => {
+    if (!ticket) return;
+    const key = getTicketKey(ticket);
+    const msgs = await loadTicketMessages(key);
+    setMessages(msgs || []);
+  };
+
   useEffect(() => {
-    if (selTicket) {
-      loadTicketMessages(selTicket.id).then(d => setMessages(d||[]));
-    }
+    if (selTicket) refreshMessages(selTicket);
+  }, [selTicket]);
+
+  // Poll for new messages and ticket status every 8 seconds
+  useEffect(() => {
+    if (!selTicket) return;
+    const interval = setInterval(async () => {
+      // Refresh messages
+      const key = getTicketKey(selTicket);
+      const msgs = await loadTicketMessages(key);
+      setMessages(prev => {
+        if (JSON.stringify(prev) !== JSON.stringify(msgs)) return msgs || [];
+        return prev;
+      });
+      // Refresh ticket status
+      const allTickets = await loadTickets();
+      const updated = allTickets.find(t =>
+        t.ticket_no === selTicket.ticket_no || t.id === selTicket.ticket_no
+      );
+      if (updated && updated.status !== selTicket.status) {
+        setSelTicket(updated);
+        // Also update ticket list
+        setTickets(prev => prev.map(t => t.ticket_no === selTicket.ticket_no ? updated : t));
+      }
+    }, 8000);
+    return () => clearInterval(interval);
   }, [selTicket]);
 
   const submitTicket = async () => {
@@ -126,10 +159,14 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
 
   const sendTicketMsg = async () => {
     if (!ticketMsg.trim() || !selTicket) return;
+    const ticketKey = getTicketKey(selTicket);
     const msg = {
-      id: Date.now(), ticket_id: selTicket.id,
-      sender_type: 'customer', sender_name: customer.full_name || customer.pppoe_username,
-      message: ticketMsg.trim(), created_at: new Date().toISOString(),
+      id:          String(Date.now()),
+      ticket_id:   ticketKey, // use ticket_no for consistency with admin
+      sender_type: 'customer',
+      sender_name: customer.full_name || customer.pppoe_username,
+      message:     ticketMsg.trim(),
+      created_at:  new Date().toISOString(),
     };
     await saveTicketMessage(msg);
     setMessages(prev => [...prev, msg]);
@@ -340,11 +377,11 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
                 className="w-full bg-card border border-border rounded-2xl p-4 text-left hover:border-primary/40 transition-colors">
                 <div className="flex items-start justify-between">
                   <p className="text-white font-semibold text-sm">{t.title}</p>
-                  <span className={clsx('text-xs px-2 py-0.5 rounded-full ml-2 flex-shrink-0',
+                  <span className={clsx('text-xs px-2 py-0.5 rounded-full ml-2 flex-shrink-0 font-semibold',
                     t.status==='open' ? 'bg-blue-500/20 text-blue-400' :
                     t.status==='in_progress' ? 'bg-yellow-500/20 text-yellow-400' :
                     t.status==='resolved' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400')}>
-                    {t.status==='open'?'Open':t.status==='in_progress'?'Diproses':t.status==='resolved'?'Selesai':'Ditutup'}
+                    {t.status==='open'?'● Open':t.status==='in_progress'?'⟳ Diproses':t.status==='resolved'?'✓ Selesai':'✕ Ditutup'}
                   </span>
                 </div>
                 <p className="text-gray-500 text-xs mt-1">{t.ticket_no} · {t.category}</p>
@@ -359,8 +396,16 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
             <button onClick={() => setSelTicket(null)} className="text-primary text-sm flex items-center gap-1">
               ← Kembali
             </button>
-            <h2 className="text-white font-bold">{selTicket.title}</h2>
-            <p className="text-gray-500 text-xs">{selTicket.ticket_no}</p>
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-bold">{selTicket.title}</h2>
+              <span className={clsx('text-xs px-2 py-1 rounded-full font-semibold',
+                selTicket.status==='open' ? 'bg-blue-500/20 text-blue-400' :
+                selTicket.status==='in_progress' ? 'bg-yellow-500/20 text-yellow-400' :
+                selTicket.status==='resolved' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400')}>
+                {selTicket.status==='open'?'Open':selTicket.status==='in_progress'?'Diproses':selTicket.status==='resolved'?'✓ Selesai':'Ditutup'}
+              </span>
+            </div>
+            <p className="text-gray-500 text-xs">{selTicket.ticket_no} · Auto-refresh setiap 8 detik</p>
             <div className="space-y-3 max-h-72 overflow-y-auto">
               {messages.length === 0 && <p className="text-gray-600 text-sm text-center py-4">Belum ada balasan dari admin</p>}
               {messages.map(msg => (
