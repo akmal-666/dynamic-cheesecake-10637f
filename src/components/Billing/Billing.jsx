@@ -106,6 +106,8 @@ export default function Billing() {
     try {
     // Re-read profileExtras fresh on every load (picks up price changes from Profiles menu)
     const profileExtras = getProfileExtras();
+    console.log('[Billing] profileExtras keys:', Object.keys(profileExtras));
+    console.log('[Billing] profileExtras values:', JSON.stringify(profileExtras));
     const [usersR, profilesR] = await Promise.all([
       callMikrotik('/ppp/secret', 'GET'),
       callMikrotik('/ppp/profile', 'GET'),
@@ -129,6 +131,7 @@ export default function Billing() {
       const prof  = rawProfiles.find(p => p.name === u.profile);
       // Resolusi harga: extras > profil Mikrotik > 0
       const price = Number(extra._price) || Number(prof?._price) || 0;
+      console.log(`[Billing] ${u.name} profile="${u.profile}" extra._price=${extra._price} prof._price=${prof?._price} → price=${price}`);
 
       // Calculate dueDate: same day-of-month as install, rolling monthly
       const calcDueDate = (iDate) => {
