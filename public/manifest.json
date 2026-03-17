@@ -1,12 +1,19 @@
 {
-  "name": "Bronet - RT RW Net",
-  "short_name": "Bronet",
+  "name": "BRONET - Portal Customer",
+  "short_name": "BRONET",
   "description": "Portal pelanggan RT RW Net Bronet",
-  "start_url": "/mobile",
+  "start_url": "/portal",
   "display": "standalone",
-  "background_color": "#0a0e1a",
+  "background_color": "#0a0f1a",
   "theme_color": "#00d4ff",
+  "orientation": "portrait",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
-  ]
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"]
 }
