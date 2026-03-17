@@ -12,6 +12,7 @@ const fmtRp   = (n) => new Intl.NumberFormat('id-ID',{style:'currency',currency:
 function Banner({ banners }) {
   const [idx, setIdx] = useState(0);
   const timerRef = useRef();
+  const trackRef = useRef();
 
   useEffect(() => {
     if (banners.length < 2) return;
@@ -19,20 +20,31 @@ function Banner({ banners }) {
     return () => clearInterval(timerRef.current);
   }, [banners.length]);
 
+  useEffect(() => {
+    if (trackRef.current) {
+      trackRef.current.style.transform = `translateX(-${idx * 100}%)`;
+    }
+  }, [idx]);
+
   if (!banners.length) return null;
-  const b = banners[idx];
   return (
-    <div className="relative rounded-2xl overflow-hidden" style={{height:180}}>
-      <img src={b.image_url} alt={b.title} className="w-full h-full object-cover"/>
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"/>
-      <div className="absolute bottom-3 left-4 right-4">
-        <p className="text-white font-semibold text-sm">{b.title}</p>
+    <div className="rounded-2xl overflow-hidden relative" style={{height:160}}>
+      <div ref={trackRef} className="flex h-full"
+        style={{transition:'transform 0.5s cubic-bezier(0.4,0,0.2,1)', width: `${banners.length * 100}%`}}>
+        {banners.map((b, i) => (
+          <div key={b.id} className="relative flex-shrink-0" style={{width:`${100/banners.length}%`}}>
+            <img src={b.image_url} alt={b.title} className="w-full h-full object-cover"/>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"/>
+            <p className="absolute bottom-3 left-4 right-4 text-white font-semibold text-sm">{b.title}</p>
+          </div>
+        ))}
       </div>
       {banners.length > 1 && (
-        <div className="absolute bottom-2 right-3 flex gap-1">
+        <div className="absolute bottom-2 right-3 flex gap-1.5">
           {banners.map((_,i) => (
             <button key={i} onClick={() => setIdx(i)}
-              className={clsx('w-1.5 h-1.5 rounded-full transition-all', i===idx ? 'bg-white w-4' : 'bg-white/40')}/>
+              style={{transition:'width 0.3s', width: i===idx ? 16 : 6}}
+              className={clsx('h-1.5 rounded-full', i===idx ? 'bg-white' : 'bg-white/40')}/>
           ))}
         </div>
       )}
@@ -49,6 +61,7 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
   const [ticketMsg, setTicketMsg] = useState('');
   const [selTicket, setSelTicket] = useState(null);
   const [messages, setMessages]  = useState([]);
+  const [csPhone,  setCsPhone]   = useState('');
   const [oldPass,  setOldPass]   = useState('');
   const [newPass,  setNewPass]   = useState('');
   const [confPass, setConfPass]  = useState('');
@@ -57,9 +70,22 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
   const record = billing?.find(b => b.username === customer.pppoe_username);
 
   useEffect(() => {
+    // Load WA CS number from settings
+    try {
+      const s = JSON.parse(localStorage.getItem('bronet_wa_settings') || '{}');
+      if (s.csPhone) setCsPhone(s.csPhone);
+      else if (s.testPhone) setCsPhone(s.testPhone);
+    } catch {}
     loadBanners().then(d => setBanners((d||[]).filter(b => b.active)));
     loadPaymentInfo().then(d => setPayInfo(d||[]));
-    loadTickets().then(d => setTickets((d||[]).filter(t => t.pppoe_username === customer.pppoe_username)));
+    // Load tickets for this customer
+    loadTickets().then(d => {
+      const myTickets = (d||[]).filter(t =>
+        t.pppoe_username === customer.pppoe_username ||
+        t.customer_id === customer.customer_id
+      );
+      setTickets(myTickets);
+    });
   }, []);
 
   useEffect(() => {
@@ -71,24 +97,30 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
   const submitTicket = async () => {
     if (!newTicket.title) return toast.error('Judul tiket wajib diisi');
     setSaving(true);
-    const ticket = {
-      id:             Date.now(),
-      ticket_no:      `TKT-${format(new Date(),'yyyyMMdd')}-${Math.random().toString(36).slice(2,6).toUpperCase()}`,
-      pppoe_username: customer.pppoe_username,
-      customer_id:    customer.customer_id || customer.id,
-      title:          newTicket.title,
-      description:    newTicket.desc,
-      category:       newTicket.category,
-      status:         'open',
-      priority:       'normal',
-      created_at:     new Date().toISOString(),
-      updated_at:     new Date().toISOString(),
-    };
-    await saveTicket(ticket);
-    setTickets(prev => [ticket, ...prev]);
-    setNewTicket({ title:'', desc:'', category:'Umum' });
-    toast.success('Tiket berhasil dikirim!');
-    setPage('ticket-list');
+    try {
+      const ticket = {
+        id:             Date.now(),
+        install_id:     'bronet_main',
+        ticket_no:      `TKT-${format(new Date(),'yyyyMMdd')}-${Math.random().toString(36).slice(2,6).toUpperCase()}`,
+        pppoe_username: customer.pppoe_username,
+        customer_id:    customer.customer_id || customer.id,
+        full_name:      customer.full_name || '',
+        title:          newTicket.title,
+        description:    newTicket.desc,
+        category:       newTicket.category,
+        status:         'open',
+        priority:       'normal',
+        created_at:     new Date().toISOString(),
+        updated_at:     new Date().toISOString(),
+      };
+      await saveTicket(ticket);
+      setTickets(prev => [ticket, ...prev]);
+      setNewTicket({ title:'', desc:'', category:'Umum' });
+      toast.success('Tiket berhasil dikirim! Admin akan segera menghubungi Anda.');
+      setPage('ticket-list');
+    } catch(e) {
+      toast.error('Gagal kirim tiket: ' + e.message);
+    }
     setSaving(false);
   };
 
@@ -145,8 +177,6 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
         {/* HOME */}
         {page === 'home' && (
           <>
-            <Banner banners={banners}/>
-
             {/* Status card */}
             <div className={clsx('rounded-2xl p-5 border',
               days === null ? 'bg-card border-border'
@@ -197,6 +227,9 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
                 <span className="text-white text-sm font-semibold">Buat Tiket</span>
               </button>
             </div>
+
+            {/* Banner - smooth auto slide */}
+            <Banner banners={banners}/>
 
             {/* Riwayat pembayaran */}
             {record?.history?.length > 0 && (
@@ -395,7 +428,7 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
                 <Phone size={16} className="text-green-400"/>Customer Service
               </h3>
               <p className="text-gray-400 text-sm mb-3">Butuh bantuan? Chat langsung dengan tim kami.</p>
-              <a href="https://wa.me/6285777082608?text=Halo admin Bronet, saya butuh bantuan."
+              <a href={`https://wa.me/${(csPhone||'').replace(/\D/g,'')}?text=${encodeURIComponent(`Halo admin Bronet, saya ${customer.full_name||customer.pppoe_username} (${customer.customer_id||customer.pppoe_username}). Saya butuh bantuan.`)}`}
                 target="_blank" rel="noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-green-500/20 text-green-400 border border-green-500/30 text-sm font-semibold">
                 <Phone size={15}/>Chat via WhatsApp
