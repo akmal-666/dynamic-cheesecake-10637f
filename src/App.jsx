@@ -16,6 +16,11 @@ import WhatsAppGuide from './components/WhatsApp/WhatsAppGuide';
 import FinancialReport from './components/Reports/FinancialReport';
 import UnpaidReport from './components/Reports/UnpaidReport';
 import AssetManagement from './components/Assets/AssetManagement';
+import BannerManagement from './components/Banners/BannerManagement';
+import PaymentInfo from './components/PaymentInfo/PaymentInfo';
+import TicketManagement from './components/Tickets/TicketManagement';
+import RemoteRouter from './components/Remote/RemoteRouter';
+import CustomerApp from './components/CustomerPortal/CustomerApp';
 import MobileApp from './components/Mobile/MobileApp';
 
 // Full-screen loading spinner
@@ -78,6 +83,14 @@ function AppRoutes() {
       <Route path="/financial" element={<AuthLayout permission="reports"><FinancialReport /></AuthLayout>} />
       <Route path="/unpaid"    element={<AuthLayout permission="reports"><UnpaidReport /></AuthLayout>} />
       <Route path="/assets"    element={<AuthLayout permission="assets"><AssetManagement /></AuthLayout>} />
+      <Route path="/banners"   element={<AuthLayout permission="banners"><BannerManagement /></AuthLayout>} />
+      <Route path="/payment-info" element={<AuthLayout permission="payment-info"><PaymentInfo /></AuthLayout>} />
+      <Route path="/tickets"   element={<AuthLayout permission="tickets"><TicketManagement /></AuthLayout>} />
+      <Route path="/remote"    element={<AuthLayout permission="remote"><RemoteRouter /></AuthLayout>} />
+
+      {/* Customer Portal — no auth required (own auth system) */}
+      <Route path="/portal" element={<CustomerApp />} />
+      <Route path="/portal/*" element={<CustomerApp />} />
 
       {/* Fallbacks */}
       <Route path="/"  element={<Navigate to={home} replace />} />
