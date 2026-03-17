@@ -51,7 +51,7 @@ export default function Settings() {
   const [form, setForm] = useState({ ...settings });
   const [activeTab, setActiveTab] = useState('mikrotik');
   const [waForm, setWaForm] = useState(() => ({
-    provider: 'manual', token: '', testPhone: '', template: DEFAULT_TEMPLATE, ...getWASetting()
+    provider: 'manual', token: '', testPhone: '', csPhone: '', template: DEFAULT_TEMPLATE, ...getWASetting()
   }));
   const [testingWA, setTestingWA] = useState(false);
   const [showPass, setShowPass]     = useState(false);
@@ -357,6 +357,14 @@ export default function Settings() {
                 </label>
               ))}
             </div>
+            {/* CS Phone - shown for all providers */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5">No. HP Customer Service</label>
+              <input value={waForm.csPhone||''} onChange={e => setWaForm(s=>({...s,csPhone:e.target.value}))}
+                className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono" placeholder="08xxxxxxxxxx"/>
+              <p className="text-xs text-gray-600 mt-1">Nomor ini muncul di tombol "Chat CS" di portal customer</p>
+            </div>
+
             {waForm.provider === 'fonnte' && (
               <div className="space-y-3 bg-darker/60 border border-border rounded-xl p-4">
                 <div className="text-xs text-blue-400 font-semibold">Cara mendapatkan Token Fonnte:</div>
@@ -369,6 +377,11 @@ export default function Settings() {
                   <label className="block text-xs text-gray-400 mb-1.5">Token API Fonnte</label>
                   <input value={waForm.token} onChange={e => setWaForm(s=>({...s,token:e.target.value}))}
                     className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono" placeholder="Paste token dari dashboard Fonnte..."/>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">No. HP Customer Service (untuk tombol chat customer)</label>
+                  <input value={waForm.csPhone||''} onChange={e => setWaForm(s=>({...s,csPhone:e.target.value}))}
+                    className="input-cyber w-full px-3 py-2.5 rounded-lg text-sm mono" placeholder="08xxxxxxxxxx (no HP admin/CS)"/>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5">Nomor Test</label>
