@@ -484,10 +484,9 @@ export async function saveTicket(ticket) {
 
 export async function loadTicketMessages(ticketId) {
   if (supabaseReady) {
-    // ticket_id in messages is TEXT (ticket_no)
     const { data, error } = await supabase.from('bronet_ticket_messages')
       .select('*').eq('install_id', INSTALL_ID)
-      .or(`ticket_id.eq.${ticketId},ticket_id.eq.${String(ticketId)}`)
+      .eq('ticket_id', String(ticketId))
       .order('created_at', { ascending: true });
     if (!error && data) return data;
   }
