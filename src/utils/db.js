@@ -562,3 +562,84 @@ export async function findCustomerByPhone(phone) {
     return variants.some(v => cp === v || cp.includes(v) || v.includes(cp));
   }) || null;
 }
+
+// ─── PAYMENT PROOFS ───────────────────────────────────────────────────────────
+const LS_PROOFS = 'bronet_payment_proofs';
+export async function loadPaymentProofs(username) {
+  if (supabaseReady) {
+    let q = supabase.from('bronet_payment_proofs').select('*').eq('install_id', INSTALL_ID).order('created_at', { ascending: false });
+    if (username) q = q.eq('pppoe_username', username);
+    const { data, error } = await q;
+    if (!error && data) return data;
+  }
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_PROOFS)||'[]'); } catch { return []; } })();
+  return username ? all.filter(p => p.pppoe_username === username) : all;
+}
+export async function savePaymentProof(proof) {
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_PROOFS)||'[]'); } catch { return []; } })();
+  const idx = all.findIndex(p => p.id === proof.id);
+  if (idx >= 0) all[idx] = proof; else all.unshift(proof);
+  localStorage.setItem(LS_PROOFS, JSON.stringify(all));
+  if (!supabaseReady) return;
+  try { await supabase.from('bronet_payment_proofs').upsert({ ...proof, install_id: INSTALL_ID }, { onConflict: 'id' }); }
+  catch(e) { console.error('[DB] savePaymentProof:', e.message); }
+}
+
+// ─── TECHNICIAN SCHEDULES ────────────────────────────────────────────────────
+const LS_SCHEDULES = 'bronet_technician_schedules';
+export async function loadSchedules(username) {
+  if (supabaseReady) {
+    let q = supabase.from('bronet_technician_schedules').select('*').eq('install_id', INSTALL_ID).order('created_at', { ascending: false });
+    if (username) q = q.eq('pppoe_username', username);
+    const { data, error } = await q;
+    if (!error && data) return data;
+  }
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_SCHEDULES)||'[]'); } catch { return []; } })();
+  return username ? all.filter(s => s.pppoe_username === username) : all;
+}
+export async function saveSchedule(sched) {
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_SCHEDULES)||'[]'); } catch { return []; } })();
+  const idx = all.findIndex(s => s.id === sched.id);
+  if (idx >= 0) all[idx] = sched; else all.unshift(sched);
+  localStorage.setItem(LS_SCHEDULES, JSON.stringify(all));
+  if (!supabaseReady) return;
+  try { await supabase.from('bronet_technician_schedules').upsert({ ...sched, install_id: INSTALL_ID }, { onConflict: 'id' }); }
+  catch(e) { console.error('[DB] saveSchedule:', e.message); }
+}
+
+// ─── FAQ ─────────────────────────────────────────────────────────────────────
+const LS_FAQ = 'bronet_faq';
+export async function loadFAQ() {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from('bronet_faq').select('*').eq('install_id', INSTALL_ID).order('sort_order');
+    if (!error && data?.length) return data;
+  }
+  try { return JSON.parse(localStorage.getItem(LS_FAQ)||'[]'); } catch { return []; }
+}
+export async function saveFAQItems(items) {
+  localStorage.setItem(LS_FAQ, JSON.stringify(items));
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_faq').delete().eq('install_id', INSTALL_ID);
+    if (items.length > 0) await supabase.from('bronet_faq').insert(items.map(f => ({ ...f, install_id: INSTALL_ID })));
+  } catch(e) { console.error('[DB] saveFAQItems:', e.message); }
+}
+
+// ─── REFERRALS ───────────────────────────────────────────────────────────────
+const LS_REFERRALS = 'bronet_referrals';
+export async function loadReferrals() {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from('bronet_referrals').select('*').eq('install_id', INSTALL_ID).order('created_at', { ascending: false });
+    if (!error && data) return data;
+  }
+  try { return JSON.parse(localStorage.getItem(LS_REFERRALS)||'[]'); } catch { return []; }
+}
+export async function saveReferral(ref) {
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_REFERRALS)||'[]'); } catch { return []; } })();
+  const idx = all.findIndex(r => r.id === ref.id);
+  if (idx >= 0) all[idx] = ref; else all.unshift(ref);
+  localStorage.setItem(LS_REFERRALS, JSON.stringify(all));
+  if (!supabaseReady) return;
+  try { await supabase.from('bronet_referrals').upsert({ ...ref, install_id: INSTALL_ID }, { onConflict: 'id' }); }
+  catch(e) { console.error('[DB] saveReferral:', e.message); }
+}
