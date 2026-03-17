@@ -4,10 +4,11 @@ import { loadWebUsers, saveWebUsers, loadRoles as loadRolesDB, saveRoles as save
 const AuthContext = createContext(null);
 
 export const ALL_PAGES = [
-  // ── Menu Utama ──────────────────────────────────────────────────────────────
+  // ── Monitoring ───────────────────────────────────────────────────────────────
   { key: 'dashboard', label: 'Dashboard Trafik', group: 'Monitoring' },
   { key: 'users',     label: 'User PPPoE — Lihat & Kelola', group: 'Monitoring' },
   { key: 'profiles',  label: 'Profil Paket — Lihat & Kelola', group: 'Monitoring' },
+  { key: 'remote',    label: 'Remote Router Customer', group: 'Monitoring' },
 
   // ── Tagihan ─────────────────────────────────────────────────────────────────
   { key: 'billing',        label: 'Tagihan & Reminder — Lihat', group: 'Tagihan' },
@@ -21,6 +22,12 @@ export const ALL_PAGES = [
   // ── Aset ─────────────────────────────────────────────────────────────────────
   { key: 'assets',         label: 'Asset Management', group: 'Aset' },
 
+  // ── Customer Portal ───────────────────────────────────────────────────────────
+  { key: 'banners',        label: 'Banner Management', group: 'Customer Portal' },
+  { key: 'payment-info',   label: 'Info Pembayaran Bank', group: 'Customer Portal' },
+  { key: 'tickets',        label: 'Tiket Aduan Customer', group: 'Customer Portal' },
+  { key: 'customers',      label: 'Akun Customer Portal', group: 'Customer Portal' },
+
   // ── Administrasi ─────────────────────────────────────────────────────────────
   { key: 'settings',       label: 'Pengaturan Koneksi Mikrotik', group: 'Admin' },
   { key: 'usermgmt',       label: 'User Management Web', group: 'Admin' },
@@ -29,11 +36,11 @@ export const ALL_PAGES = [
 
 const DEFAULT_ROLES = [
   { id: 'superadmin', label: 'Super Admin', editable: false,
-    permissions: ['dashboard','users','profiles','billing','billing-lunas','billing-wa','settings','usermgmt','roles','reports','delete-reports','assets'] },
+    permissions: ['dashboard','users','profiles','billing','billing-lunas','billing-wa','settings','usermgmt','roles','reports','delete-reports','assets','banners','payment-info','tickets','customers','remote'] },
   { id: 'admin', label: 'Admin', editable: true,
-    permissions: ['dashboard','users','profiles','billing','billing-lunas','billing-wa','settings','reports','delete-reports','assets'] },
+    permissions: ['dashboard','users','profiles','billing','billing-lunas','billing-wa','settings','reports','delete-reports','assets','banners','payment-info','tickets','customers','remote'] },
   { id: 'operator', label: 'Operator', editable: true,
-    permissions: ['dashboard','users','billing','billing-lunas','billing-wa'] },
+    permissions: ['dashboard','users','billing','billing-lunas','billing-wa','tickets'] },
   { id: 'viewer', label: 'Viewer', editable: true,
     permissions: ['dashboard'] },
 ];
