@@ -392,3 +392,129 @@ export async function pruneTrafficHistory(days = 365) {
     else { console.log('[DB] pruneTrafficHistory: data older than', days, 'days removed'); }
   } catch (e) { console.error('[DB] pruneTrafficHistory exception:', e.message); }
 }
+
+// ─── BANNERS ─────────────────────────────────────────────────────────────────
+const LS_BANNERS = 'bronet_banners';
+
+export async function loadBanners() {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from('bronet_banners')
+      .select('*').eq('install_id', INSTALL_ID).eq('active', true)
+      .order('sort_order', { ascending: true });
+    if (!error && data?.length) return data;
+  }
+  try { return JSON.parse(localStorage.getItem(LS_BANNERS) || '[]'); } catch { return []; }
+}
+
+export async function saveBanners(banners) {
+  localStorage.setItem(LS_BANNERS, JSON.stringify(banners));
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_banners').delete().eq('install_id', INSTALL_ID);
+    if (banners.length > 0) {
+      await supabase.from('bronet_banners').insert(banners.map(b => ({ ...b, install_id: INSTALL_ID })));
+    }
+  } catch(e) { console.error('[DB] saveBanners:', e.message); }
+}
+
+// ─── PAYMENT INFO ─────────────────────────────────────────────────────────────
+const LS_PAYMENT = 'bronet_payment_info';
+
+export async function loadPaymentInfo() {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from('bronet_payment_info')
+      .select('*').eq('install_id', INSTALL_ID).order('sort_order');
+    if (!error && data?.length) return data;
+  }
+  try { return JSON.parse(localStorage.getItem(LS_PAYMENT) || '[]'); } catch { return []; }
+}
+
+export async function savePaymentInfo(items) {
+  localStorage.setItem(LS_PAYMENT, JSON.stringify(items));
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_payment_info').delete().eq('install_id', INSTALL_ID);
+    if (items.length > 0) {
+      await supabase.from('bronet_payment_info').insert(items.map(i => ({ ...i, install_id: INSTALL_ID })));
+    }
+  } catch(e) { console.error('[DB] savePaymentInfo:', e.message); }
+}
+
+// ─── TICKETS ─────────────────────────────────────────────────────────────────
+const LS_TICKETS = 'bronet_tickets';
+
+export async function loadTickets() {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from('bronet_tickets')
+      .select('*').eq('install_id', INSTALL_ID)
+      .order('created_at', { ascending: false });
+    if (!error && data) return data;
+  }
+  try { return JSON.parse(localStorage.getItem(LS_TICKETS) || '[]'); } catch { return []; }
+}
+
+export async function saveTicket(ticket) {
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_TICKETS) || '[]'); } catch { return []; } })();
+  const idx = all.findIndex(t => t.id === ticket.id);
+  if (idx >= 0) all[idx] = ticket; else all.unshift(ticket);
+  localStorage.setItem(LS_TICKETS, JSON.stringify(all));
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_tickets').upsert({ ...ticket, install_id: INSTALL_ID }, { onConflict: 'id' });
+  } catch(e) { console.error('[DB] saveTicket:', e.message); }
+}
+
+export async function loadTicketMessages(ticketId) {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from('bronet_ticket_messages')
+      .select('*').eq('install_id', INSTALL_ID).eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true });
+    if (!error && data) return data;
+  }
+  return [];
+}
+
+export async function saveTicketMessage(msg) {
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_ticket_messages').insert({ ...msg, install_id: INSTALL_ID });
+  } catch(e) { console.error('[DB] saveTicketMessage:', e.message); }
+}
+
+// ─── CUSTOMERS (portal login) ────────────────────────────────────────────────
+const LS_CUSTOMERS = 'bronet_customers';
+
+export async function loadCustomers() {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from('bronet_customers')
+      .select('*').eq('install_id', INSTALL_ID);
+    if (!error && data) return data;
+  }
+  try { return JSON.parse(localStorage.getItem(LS_CUSTOMERS) || '[]'); } catch { return []; }
+}
+
+export async function saveCustomer(customer) {
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_CUSTOMERS) || '[]'); } catch { return []; } })();
+  const idx = all.findIndex(c => c.id === customer.id);
+  if (idx >= 0) all[idx] = customer; else all.push(customer);
+  localStorage.setItem(LS_CUSTOMERS, JSON.stringify(all));
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_customers').upsert(
+      { ...customer, install_id: INSTALL_ID },
+      { onConflict: 'id' }
+    );
+  } catch(e) { console.error('[DB] saveCustomer:', e.message); }
+}
+
+export async function findCustomerByPhone(phone) {
+  const clean = phone.replace(/\D/g, '');
+  if (supabaseReady) {
+    const { data } = await supabase.from('bronet_customers')
+      .select('*').eq('install_id', INSTALL_ID)
+      .ilike('phone', `%${clean}%`).limit(1);
+    if (data?.length) return data[0];
+  }
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_CUSTOMERS) || '[]'); } catch { return []; } })();
+  return all.find(c => (c.phone || '').replace(/\D/g,'').includes(clean)) || null;
+}
