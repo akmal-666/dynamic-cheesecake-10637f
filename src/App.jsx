@@ -21,6 +21,7 @@ import PaymentInfo from './components/PaymentInfo/PaymentInfo';
 import TicketManagement from './components/Tickets/TicketManagement';
 import RemoteRouter from './components/Remote/RemoteRouter';
 import CustomerApp from './components/CustomerPortal/CustomerApp';
+import CustomerAccounts from './components/Customers/CustomerAccounts';
 import MobileApp from './components/Mobile/MobileApp';
 
 // Full-screen loading spinner
@@ -86,6 +87,7 @@ function AppRoutes() {
       <Route path="/banners"   element={<AuthLayout permission="banners"><BannerManagement /></AuthLayout>} />
       <Route path="/payment-info" element={<AuthLayout permission="payment-info"><PaymentInfo /></AuthLayout>} />
       <Route path="/tickets"   element={<AuthLayout permission="tickets"><TicketManagement /></AuthLayout>} />
+      <Route path="/customers"  element={<AuthLayout permission="customers"><CustomerAccounts /></AuthLayout>} />
       <Route path="/remote"    element={<AuthLayout permission="remote"><RemoteRouter /></AuthLayout>} />
 
       {/* Customer Portal — no auth required (own auth system) */}
