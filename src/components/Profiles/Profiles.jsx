@@ -55,9 +55,10 @@ export default function Profiles() {
     const result = await callMikrotik('/ppp/profile', 'GET');
     const extrasData = getExtras();
     if (result.success && Array.isArray(result.data)) {
+      const latestExtras = getExtras(); // always read fresh extras
       const withExtras = result.data.map(p => ({
         ...p,
-        _price: extrasData[p.name]?._price || p._price || '',
+        _price: latestExtras[p.name]?._price || extrasData[p.name]?._price || p._price || '',
         _description: extrasData[p.name]?._description || p._description || '',
       }));
       setProfiles(withExtras);
@@ -88,19 +89,14 @@ export default function Profiles() {
     };
     if (form['address-pool']) mikrotikPayload['address-pool'] = form['address-pool'];
 
-    let result;
-    if (editProfile) {
-      result = await callMikrotik(`/ppp/profile/${editProfile['.id']}`, 'PATCH', mikrotikPayload);
-    } else {
-      result = await callMikrotik('/ppp/profile', 'PUT', mikrotikPayload);
-    }
-
-    // Save extras (price & description) locally
+    // Save extras (price & description) dulu — selalu, online maupun offline
     const newExtras = { ...getExtras(), [form.name]: { _price: form._price, _description: form._description } };
     saveExtras(newExtras);
     setExtras(newExtras);
 
     const updatedProfile = { ...mikrotikPayload, _price: form._price, _description: form._description };
+
+    // Simpan ke state & localStorage dulu agar UI langsung update
     let newProfiles;
     if (editProfile) {
       newProfiles = profiles.map(p => p['.id'] === editProfile['.id'] ? { ...p, ...updatedProfile } : p);
@@ -110,10 +106,18 @@ export default function Profiles() {
     setProfiles(newProfiles);
     localStorage.setItem('bronet_profiles', JSON.stringify(newProfiles));
 
+    // Kirim ke Mikrotik (jika gagal, data tetap tersimpan lokal)
+    if (editProfile) {
+      await callMikrotik(`/ppp/profile/${editProfile['.id']}`, 'PATCH', mikrotikPayload);
+    } else {
+      await callMikrotik('/ppp/profile', 'PUT', mikrotikPayload);
+    }
+
     toast.success(editProfile ? 'Profil berhasil diupdate!' : 'Profil berhasil ditambahkan!');
     setModalOpen(false);
     setSaving(false);
-    await loadProfiles();
+    // Reload hanya jika online agar tidak overwrite data lokal
+    if (true) await loadProfiles();
   };
 
   const handleDelete = async (profile) => {
