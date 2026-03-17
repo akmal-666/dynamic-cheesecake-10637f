@@ -5,22 +5,33 @@ import { useApp } from '../../contexts/AppContext';
 import {
   LayoutDashboard, Users, Sliders, CreditCard, Settings,
   Shield, ShieldCheck, MessageCircle, BarChart2, UserX, Package,
-  Menu, X, LogOut, Wifi, WifiOff, ChevronRight
+  Menu, X, LogOut, Wifi, WifiOff, ChevronRight,
+  Image, Banknote, Ticket, Radio, ExternalLink
 } from 'lucide-react';
 import clsx from 'clsx';
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard Trafik', icon: LayoutDashboard, permission: 'dashboard' },
-  { path: '/users', label: 'User PPPoE', icon: Users, permission: 'users' },
-  { path: '/profiles', label: 'Profil Paket', icon: Sliders, permission: 'profiles' },
-  { path: '/billing', label: 'Tagihan & Reminder', icon: CreditCard, permission: 'billing' },
-  { path: '/settings', label: 'Pengaturan', icon: Settings, permission: 'settings' },
-  { path: '/usermgmt', label: 'User Management', icon: Shield, permission: 'usermgmt' },
-  { path: '/roles', label: 'Manajemen Role', icon: ShieldCheck, permission: 'roles' },
-  { path: '/whatsapp', label: 'Panduan WhatsApp', icon: MessageCircle, permission: 'settings' },
-  { path: '/financial', label: 'Lap. Keuangan', icon: BarChart2, permission: 'reports' },
-  { path: '/unpaid',    label: 'Lap. Belum Bayar', icon: UserX, permission: 'reports' },
-  { path: '/assets',    label: 'Asset Management', icon: Package, permission: 'assets' },
+  // Monitoring
+  { path: '/dashboard',  label: 'Dashboard Trafik',    icon: LayoutDashboard, permission: 'dashboard' },
+  { path: '/users',      label: 'User PPPoE',           icon: Users,           permission: 'users' },
+  { path: '/profiles',   label: 'Profil Paket',         icon: Sliders,         permission: 'profiles' },
+  { path: '/remote',     label: 'Remote Router',        icon: Radio,           permission: 'remote' },
+  // Tagihan
+  { path: '/billing',    label: 'Tagihan & Reminder',   icon: CreditCard,      permission: 'billing' },
+  // Laporan
+  { path: '/financial',  label: 'Lap. Keuangan',        icon: BarChart2,       permission: 'reports' },
+  { path: '/unpaid',     label: 'Lap. Belum Bayar',     icon: UserX,           permission: 'reports' },
+  // Aset
+  { path: '/assets',     label: 'Asset Management',     icon: Package,         permission: 'assets' },
+  // Customer Portal
+  { path: '/banners',    label: 'Banner Management',    icon: Image,           permission: 'banners' },
+  { path: '/payment-info', label: 'Info Pembayaran',    icon: Banknote,        permission: 'payment-info' },
+  { path: '/tickets',    label: 'Tiket Aduan',          icon: Ticket,          permission: 'tickets' },
+  // Admin
+  { path: '/settings',   label: 'Pengaturan',           icon: Settings,        permission: 'settings' },
+  { path: '/usermgmt',   label: 'User Management',      icon: Shield,          permission: 'usermgmt' },
+  { path: '/roles',      label: 'Manajemen Role',       icon: ShieldCheck,     permission: 'roles' },
+  { path: '/whatsapp',   label: 'Panduan WhatsApp',     icon: MessageCircle,   permission: 'settings' },
 ];
 
 export default function Layout({ children }) {
