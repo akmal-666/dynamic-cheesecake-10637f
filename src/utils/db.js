@@ -509,12 +509,31 @@ export async function saveCustomer(customer) {
 
 export async function findCustomerByPhone(phone) {
   const clean = phone.replace(/\D/g, '');
+  // Build all possible formats: 08xxx, 628xxx, 8xxx
+  const variants = [
+    clean,
+    clean.startsWith('62') ? '0' + clean.slice(2) : clean,
+    clean.startsWith('0')  ? '62' + clean.slice(1) : clean,
+    clean.startsWith('0')  ? clean.slice(1) : clean,
+  ];
+
+  // Also search by pppoe_username in case phone wasn't set
   if (supabaseReady) {
     const { data } = await supabase.from('bronet_customers')
-      .select('*').eq('install_id', INSTALL_ID)
-      .ilike('phone', `%${clean}%`).limit(1);
-    if (data?.length) return data[0];
+      .select('*').eq('install_id', INSTALL_ID);
+    if (data?.length) {
+      const found = data.find(c => {
+        const cp = (c.phone || '').replace(/\D/g,'');
+        return variants.some(v => cp === v || cp.includes(v) || v.includes(cp));
+      });
+      if (found) return found;
+    }
   }
+
+  // Fallback to localStorage
   const all = (() => { try { return JSON.parse(localStorage.getItem(LS_CUSTOMERS) || '[]'); } catch { return []; } })();
-  return all.find(c => (c.phone || '').replace(/\D/g,'').includes(clean)) || null;
+  return all.find(c => {
+    const cp = (c.phone || '').replace(/\D/g,'');
+    return variants.some(v => cp === v || cp.includes(v) || v.includes(cp));
+  }) || null;
 }
