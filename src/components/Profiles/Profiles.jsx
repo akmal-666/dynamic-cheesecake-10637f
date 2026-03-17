@@ -64,10 +64,18 @@ export default function Profiles() {
       setProfiles(withExtras);
       localStorage.setItem('bronet_profiles', JSON.stringify(withExtras));
     } else {
+      // Offline: baca dari localStorage dan merge dengan extras terbaru
       const saved = localStorage.getItem('bronet_profiles');
-      setProfiles(saved ? JSON.parse(saved) : MOCK_PPP_PROFILES);
+      const savedProfiles = saved ? JSON.parse(saved) : MOCK_PPP_PROFILES;
+      const latestExtras = getExtras();
+      const withExtras = savedProfiles.map(p => ({
+        ...p,
+        _price: latestExtras[p.name]?._price || p._price || '',
+        _description: latestExtras[p.name]?._description || p._description || '',
+      }));
+      setProfiles(withExtras);
     }
-    setExtras(extrasData);
+    setExtras(getExtras()); // always read fresh extras
     setLoading(false);
   };
 
@@ -116,8 +124,9 @@ export default function Profiles() {
     toast.success(editProfile ? 'Profil berhasil diupdate!' : 'Profil berhasil ditambahkan!');
     setModalOpen(false);
     setSaving(false);
-    // Reload hanya jika online agar tidak overwrite data lokal
-    if (true) await loadProfiles();
+    // Jangan reload dari Mikrotik — data sudah tersimpan lokal di atas
+    // Cukup update extras agar harga terbaru terbaca di Billing
+    setExtras(newExtras);
   };
 
   const handleDelete = async (profile) => {
