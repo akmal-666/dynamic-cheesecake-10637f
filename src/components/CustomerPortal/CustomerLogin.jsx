@@ -18,15 +18,31 @@ export default function CustomerLogin({ onLogin }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!phone || !password) return toast.error('Isi nomor HP dan password');
+    if (!phone || !password) return toast.error('Isi nomor HP / username dan password');
     setLoading(true);
     try {
-      const cust = await findCustomerByPhone(phone);
-      if (!cust) return toast.error('Nomor HP tidak terdaftar');
+      // Try find by phone first, then by pppoe_username
+      let cust = await findCustomerByPhone(phone);
+
+      // Fallback: search by pppoe_username directly
+      if (!cust) {
+        const { loadCustomers } = await import('../../utils/db');
+        const all = await loadCustomers();
+        cust = all.find(c =>
+          c.pppoe_username === phone.trim() ||
+          c.pppoe_username === phone.trim().toLowerCase()
+        ) || null;
+      }
+
+      if (!cust) {
+        toast.error('Nomor HP / username tidak terdaftar. Hubungi admin untuk aktivasi akun.');
+        setLoading(false);
+        return;
+      }
       if (!cust.active) return toast.error('Akun Anda nonaktif. Hubungi admin.');
 
       // Check password
-      const ok = cust.password_hash === btoa(password); // simple encoding
+      const ok = cust.password_hash === btoa(password);
       if (!ok) return toast.error('Password salah');
 
       // Must change password on first login
@@ -41,6 +57,8 @@ export default function CustomerLogin({ onLogin }) {
       await saveCustomer(updated);
       onLogin(updated);
       toast.success(`Selamat datang, ${cust.full_name || cust.pppoe_username}!`);
+    } catch(err) {
+      toast.error('Error: ' + err.message);
     } finally { setLoading(false); }
   };
 
@@ -79,12 +97,12 @@ export default function CustomerLogin({ onLogin }) {
             <h2 className="text-white font-semibold text-lg mb-5">Login</h2>
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs text-gray-400 mb-1.5">Nomor HP</label>
+                <label className="block text-xs text-gray-400 mb-1.5">Nomor HP / Username PPPoE</label>
                 <div className="relative">
                   <Smartphone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"/>
                   <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
                     className="input-cyber w-full pl-10 pr-4 py-3 rounded-xl text-sm mono"
-                    placeholder="08xxxxxxxxxx" required/>
+                    placeholder="08xxxxxxxxxx atau username PPPoE" required/>
                 </div>
               </div>
               <div>
