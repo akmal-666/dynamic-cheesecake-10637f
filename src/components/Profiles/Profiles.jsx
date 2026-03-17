@@ -114,18 +114,27 @@ export default function Profiles() {
     setProfiles(newProfiles);
     localStorage.setItem('bronet_profiles', JSON.stringify(newProfiles));
 
-    // Kirim ke Mikrotik (jika gagal, data tetap tersimpan lokal)
+    // Kirim ke Mikrotik
+    let mikrotikResult;
     if (editProfile) {
-      await callMikrotik(`/ppp/profile/${editProfile['.id']}`, 'PATCH', mikrotikPayload);
+      mikrotikResult = await callMikrotik(`/ppp/profile/${editProfile['.id']}`, 'PATCH', mikrotikPayload);
     } else {
-      await callMikrotik('/ppp/profile', 'PUT', mikrotikPayload);
+      // Mikrotik REST API: PUT = create new resource
+      mikrotikResult = await callMikrotik('/ppp/profile', 'PUT', mikrotikPayload);
     }
 
-    toast.success(editProfile ? 'Profil berhasil diupdate!' : 'Profil berhasil ditambahkan!');
+    if (mikrotikResult.success) {
+      toast.success(editProfile ? 'Profil diupdate & tersinkron ke Mikrotik ✓' : 'Profil ditambahkan & tersinkron ke Mikrotik ✓');
+      // Reload dari Mikrotik untuk dapat .id yang asli
+      await loadProfiles();
+    } else {
+      // Mikrotik gagal tapi data tersimpan lokal
+      toast.success((editProfile ? 'Profil diupdate' : 'Profil ditambahkan') + ' (tersimpan lokal, belum tersinkron ke Mikrotik)');
+      toast.error('Mikrotik: ' + (mikrotikResult.error || 'Gagal tersinkron'), { duration: 4000 });
+    }
+
     setModalOpen(false);
     setSaving(false);
-    // Jangan reload dari Mikrotik — data sudah tersimpan lokal di atas
-    // Cukup update extras agar harga terbaru terbaca di Billing
     setExtras(newExtras);
   };
 
