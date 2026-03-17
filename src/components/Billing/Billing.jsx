@@ -80,6 +80,7 @@ export default function Billing() {
   const [users,    setUsers]    = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [billing,  setBillingState] = useState([]);
+  const billingRef = React.useRef([]); // always latest billing data
   const [waSettings, setWaSettings] = useState(() => ({
     provider: 'fonnte',
     token: '',
@@ -115,7 +116,8 @@ export default function Billing() {
     setProfiles(rawProfiles);
 
     // Init billing records from installDate
-    const cur = getBilling();
+    // Use billingRef for latest data (includes Supabase data, not just localStorage)
+    const cur = billingRef.current.length > 0 ? billingRef.current : getBilling();
     let changed = false;
     const updated = [...cur];
     rawUsers.forEach(u => {
@@ -198,7 +200,8 @@ export default function Billing() {
         }
       }
     });
-    // Always save updated billing (price may have been corrected)
+    // Always save updated billing with corrected prices
+    billingRef.current = updated;
     setBillingState(updated);
     saveBilling(updated);
     if (changed) {
@@ -215,7 +218,11 @@ export default function Billing() {
   useEffect(() => {
     // Load billing from DB first
     loadBillingDB().then(saved => {
-      if (saved && saved.length > 0) setBillingState(saved);
+      if (saved && saved.length > 0) {
+        billingRef.current = saved;
+        setBillingState(saved);
+        saveBilling(saved); // sync Supabase data to localStorage
+      }
     }).catch(() => {});
     // Load logs from DB
     loadLogsDB().then(saved => {
@@ -229,7 +236,8 @@ export default function Billing() {
     if (!users.length) return;
     const todayStr = new Date().toISOString().split('T')[0];
     if (localStorage.getItem('bronet_last_auto_reminder') === todayStr) return;
-    const cur = getBilling();
+    // Use billingRef for latest data (includes Supabase data, not just localStorage)
+    const cur = billingRef.current.length > 0 ? billingRef.current : getBilling();
     const due2 = users.filter(u => {
       const b = cur.find(x => x.username === u.name);
       if (!b || b.paidAt) return false;
@@ -245,7 +253,12 @@ export default function Billing() {
   // ── helpers ─────────────────────────────────────────────────────────
   const getRecord = (username) => billing.find(b => b.username === username);
 
-  const updateBilling = (newArr) => { setBillingState(newArr); saveBilling(newArr); saveAllBilling(newArr).catch(console.error); };
+  const updateBilling = (newArr) => {
+    billingRef.current = newArr;
+    setBillingState(newArr);
+    saveBilling(newArr);
+    saveAllBilling(newArr).catch(console.error);
+  };
 
   // ── LUNAS ───────────────────────────────────────────────────────────
   const confirmLunas = ({ user, record }) => {
