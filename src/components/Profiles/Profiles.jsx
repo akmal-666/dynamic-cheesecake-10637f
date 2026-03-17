@@ -85,17 +85,16 @@ export default function Profiles() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    const mikrotikPayload = {
-      name: form.name,
-      'rate-limit': form['rate-limit'],
-      'local-address': form['local-address'],
-      'remote-address': form['remote-address'],
-      'session-timeout': form['session-timeout'],
-      'idle-timeout': form['idle-timeout'],
-      'dns-server': form['dns-server'],
-      'only-one': form['only-one'],
-    };
-    if (form['address-pool']) mikrotikPayload['address-pool'] = form['address-pool'];
+    // Hanya kirim field yang tidak kosong ke Mikrotik
+    const mikrotikPayload = { name: form.name };
+    if (form['rate-limit']?.trim())      mikrotikPayload['rate-limit']       = form['rate-limit'].trim();
+    if (form['local-address']?.trim())   mikrotikPayload['local-address']    = form['local-address'].trim();
+    if (form['remote-address']?.trim())  mikrotikPayload['remote-address']   = form['remote-address'].trim();
+    if (form['session-timeout']?.trim()) mikrotikPayload['session-timeout']  = form['session-timeout'].trim();
+    if (form['idle-timeout']?.trim())    mikrotikPayload['idle-timeout']     = form['idle-timeout'].trim();
+    if (form['dns-server']?.trim())      mikrotikPayload['dns-server']       = form['dns-server'].trim();
+    if (form['only-one'])                mikrotikPayload['only-one']         = form['only-one'];
+    if (form['address-pool']?.trim())    mikrotikPayload['address-pool']     = form['address-pool'].trim();
 
     // Save extras (price & description) dulu — selalu, online maupun offline
     const newExtras = { ...getExtras(), [form.name]: { _price: form._price, _description: form._description } };
