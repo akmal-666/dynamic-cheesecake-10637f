@@ -448,26 +448,46 @@ export async function loadTickets() {
     const { data, error } = await supabase.from('bronet_tickets')
       .select('*').eq('install_id', INSTALL_ID)
       .order('created_at', { ascending: false });
-    if (!error && data) return data;
+    if (!error && data) {
+      // Merge with localStorage (portal may have unsaved tickets)
+      const local = (() => { try { return JSON.parse(localStorage.getItem(LS_TICKETS) || '[]'); } catch { return []; } })();
+      const dbNos = new Set(data.map(t => t.ticket_no));
+      const localOnly = local.filter(t => !dbNos.has(t.ticket_no));
+      return [...localOnly, ...data];
+    }
   }
   try { return JSON.parse(localStorage.getItem(LS_TICKETS) || '[]'); } catch { return []; }
 }
 
 export async function saveTicket(ticket) {
+  // Save to localStorage with local id
   const all = (() => { try { return JSON.parse(localStorage.getItem(LS_TICKETS) || '[]'); } catch { return []; } })();
-  const idx = all.findIndex(t => t.id === ticket.id);
+  const idx = all.findIndex(t => t.id === ticket.id || t.ticket_no === ticket.ticket_no);
   if (idx >= 0) all[idx] = ticket; else all.unshift(ticket);
   localStorage.setItem(LS_TICKETS, JSON.stringify(all));
+
   if (!supabaseReady) return;
   try {
-    await supabase.from('bronet_tickets').upsert({ ...ticket, install_id: INSTALL_ID }, { onConflict: 'id' });
-  } catch(e) { console.error('[DB] saveTicket:', e.message); }
+    // Use ticket_no as TEXT id for Supabase (schema changed to TEXT primary key)
+    const payload = {
+      ...ticket,
+      id: ticket.ticket_no, // use ticket_no as stable TEXT id
+      install_id: INSTALL_ID,
+    };
+
+    const { error } = await supabase.from('bronet_tickets')
+      .upsert(payload, { onConflict: 'id' });
+    if (error) { console.error('[DB] saveTicket error:', error.message); }
+    else { console.log('[DB] saveTicket saved:', ticket.ticket_no); }
+  } catch(e) { console.error('[DB] saveTicket exception:', e.message); }
 }
 
 export async function loadTicketMessages(ticketId) {
   if (supabaseReady) {
+    // ticket_id in messages is TEXT (ticket_no)
     const { data, error } = await supabase.from('bronet_ticket_messages')
-      .select('*').eq('install_id', INSTALL_ID).eq('ticket_id', ticketId)
+      .select('*').eq('install_id', INSTALL_ID)
+      .or(`ticket_id.eq.${ticketId},ticket_id.eq.${String(ticketId)}`)
       .order('created_at', { ascending: true });
     if (!error && data) return data;
   }
@@ -477,7 +497,13 @@ export async function loadTicketMessages(ticketId) {
 export async function saveTicketMessage(msg) {
   if (!supabaseReady) return;
   try {
-    await supabase.from('bronet_ticket_messages').insert({ ...msg, install_id: INSTALL_ID });
+    const payload = {
+      ...msg,
+      id: String(msg.id), // ensure TEXT
+      ticket_id: String(msg.ticket_id), // ensure TEXT ref
+      install_id: INSTALL_ID,
+    };
+    await supabase.from('bronet_ticket_messages').insert(payload);
   } catch(e) { console.error('[DB] saveTicketMessage:', e.message); }
 }
 
