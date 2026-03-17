@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Sliders, CreditCard, Settings,
   Shield, ShieldCheck, MessageCircle, BarChart2, UserX, Package,
   Menu, X, LogOut, Wifi, WifiOff, ChevronRight,
-  Image, Banknote, Ticket, Radio, ExternalLink
+  Image, Banknote, Ticket, Radio, ExternalLink, HelpCircle, Wrench, Upload, Users2
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -27,7 +27,10 @@ const navItems = [
   { path: '/banners',    label: 'Banner Management',    icon: Image,           permission: 'banners' },
   { path: '/payment-info', label: 'Info Pembayaran',    icon: Banknote,        permission: 'payment-info' },
   { path: '/tickets',    label: 'Tiket Aduan',          icon: Ticket,          permission: 'tickets' },
-  { path: '/customers',  label: 'Akun Customer Portal',  icon: Users,           permission: 'customers' },
+  { path: '/customers',    label: 'Akun Customer Portal',  icon: Users,           permission: 'customers' },
+  { path: '/faq',           label: 'FAQ / Knowledge Base',  icon: HelpCircle,      permission: 'banners' },
+  { path: '/tech-schedule', label: 'Jadwal Teknisi',        icon: Wrench,          permission: 'tickets' },
+  { path: '/payment-proofs',label: 'Bukti Pembayaran',      icon: Upload,          permission: 'billing-lunas' },
   // Admin
   { path: '/settings',   label: 'Pengaturan',           icon: Settings,        permission: 'settings' },
   { path: '/usermgmt',   label: 'User Management',      icon: Shield,          permission: 'usermgmt' },
