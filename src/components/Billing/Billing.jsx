@@ -125,7 +125,8 @@ export default function Billing() {
       const installDate = parsed.installDate || '';
       const extra = profileExtras[u.profile] || {};
       const prof  = rawProfiles.find(p => p.name === u.profile);
-      const price = extra._price || prof?._price || 0;
+      // Resolusi harga: extras > profil Mikrotik > 0
+      const price = Number(extra._price) || Number(prof?._price) || 0;
 
       // Calculate dueDate: same day-of-month as install, rolling monthly
       const calcDueDate = (iDate) => {
@@ -146,7 +147,7 @@ export default function Billing() {
         updated.push({
           username:    u.name,
           profile:     u.profile,
-          price: Number(price) || 0,
+          price: price,
           installDate: installDate || format(new Date(), 'yyyy-MM-dd'),
           dueDate:     calcDueDate(installDate || null),
           paidAt:      null,
@@ -156,25 +157,17 @@ export default function Billing() {
       } else {
         let needsUpdate = false;
         const upd = { ...exists };
-        // Always re-read price from extras on load — fixes Rp 0 from stale records
+        // ── Resolusi harga: ambil dari extras (prioritas) atau profile Mikrotik ──
+        // extras = harga yang diset manual di menu Profil Paket
         const freshExtra = profileExtras[u.profile] || {};
         const freshProf  = rawProfiles.find(p => p.name === u.profile);
-        const freshPrice = Number(freshExtra._price || freshProf?._price || 0);
-        // Sync price: update jika extras punya harga BERBEDA dari yang tersimpan
-        if (Number(upd.price) !== freshPrice) {
-          upd.price = freshPrice;
-          needsUpdate = true;
-        }
-        // Sync price always — force update from extras on every loadData
-        // This fixes stale Rp 0 prices when extras were set after billing was created
-        const newPrice = Number(price) || 0;
-        const oldPrice = Number(upd.price) || 0;
-        if (newPrice !== oldPrice) {
-          upd.price = newPrice;
-          needsUpdate = true;
-        } else if (newPrice > 0 && oldPrice === 0) {
-          // Force update if extras now have price but billing still has 0
-          upd.price = newPrice;
+        const resolvedPrice = Number(freshExtra._price)  // dari extras
+          || Number(freshProf?._price)                    // dari profil Mikrotik
+          || Number(price)                                // dari awal loadData
+          || 0;
+        // Update jika harga berbeda dari yang tersimpan
+        if (Number(upd.price) !== resolvedPrice) {
+          upd.price = resolvedPrice;
           needsUpdate = true;
         }
         // Sync profile name if changed (user moved to different package)
@@ -205,7 +198,13 @@ export default function Billing() {
         }
       }
     });
-    if (changed) { setBillingState(updated); saveBilling(updated); }
+    // Always save updated billing (price may have been corrected)
+    setBillingState(updated);
+    saveBilling(updated);
+    if (changed) {
+      // Sync to Supabase only when data actually changed
+      saveAllBilling(updated).catch(console.error);
+    }
     } catch(err) {
       console.error('Billing loadData error:', err);
     } finally {
