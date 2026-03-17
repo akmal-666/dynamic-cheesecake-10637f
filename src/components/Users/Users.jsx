@@ -188,6 +188,23 @@ export default function Users() {
         toast.success('User berhasil diupdate di Mikrotik!');
       } else {
         setSuccessInfo({ ...payload, password: form.password, installDate: form.installDate, fullName: form.fullName, customerId: form.customerId });
+        // Auto-create customer portal account
+        if (form.phone) {
+          const cleanPh = form.phone.replace(/\D/g,'');
+          const customer = {
+            id:             'cust_' + Date.now(),
+            pppoe_username: form.name,
+            phone:          cleanPh,
+            password_hash:  btoa(cleanPh.slice(-6) || '123456'), // default: 6 digit terakhir no HP
+            must_change_pw: true,
+            full_name:      form.fullName || '',
+            customer_id:    form.customerId || '',
+            profile:        form.profile || '',
+            active:         true,
+            created_at:     new Date().toISOString(),
+          };
+          saveCustomer(customer).catch(console.error);
+        }
       }
     } else if (!usingMikrotik) {
       // Offline/demo mode — save to localStorage
@@ -206,6 +223,23 @@ export default function Users() {
         toast.success('User diupdate (tersimpan lokal)');
       } else {
         setSuccessInfo({ ...payload, password: form.password, installDate: form.installDate, fullName: form.fullName, customerId: form.customerId });
+        // Auto-create customer portal account
+        if (form.phone) {
+          const cleanPh = form.phone.replace(/\D/g,'');
+          const customer = {
+            id:             'cust_' + Date.now(),
+            pppoe_username: form.name,
+            phone:          cleanPh,
+            password_hash:  btoa(cleanPh.slice(-6) || '123456'), // default: 6 digit terakhir no HP
+            must_change_pw: true,
+            full_name:      form.fullName || '',
+            customer_id:    form.customerId || '',
+            profile:        form.profile || '',
+            active:         true,
+            created_at:     new Date().toISOString(),
+          };
+          saveCustomer(customer).catch(console.error);
+        }
       }
     } else {
       toast.error('Gagal menyimpan ke Mikrotik: ' + result.error);
