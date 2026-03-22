@@ -19,7 +19,7 @@ export default function Login() {
     const result = login(form.username, form.password);
     setLoading(false);
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/admin/dashboard');
     } else {
       setError(result.error);
     }
@@ -102,7 +102,7 @@ export default function Login() {
 
           <div className="mt-6 pt-4 border-t border-border">
             <p className="text-xs text-gray-600 text-center">
-              Masukan User yang sudah di daftarkan
+              Default: admin / admin123 atau operator / op123
             </p>
           </div>
         </div>
