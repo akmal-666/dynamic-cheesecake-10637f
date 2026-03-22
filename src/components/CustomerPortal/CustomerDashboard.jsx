@@ -3,7 +3,7 @@ import {
   Calendar, Clock, CreditCard, MessageSquare, LogOut, Key, Bell,
   Ticket, Phone, Wifi, WifiOff, Upload, Wrench, HelpCircle,
   Gift, ChevronRight, CheckCircle, XCircle, AlertTriangle,
-  Activity, RefreshCw, X, Send, Image as ImageIcon
+  Activity, RefreshCw, X, Send, Image as ImageIcon, UserPlus, FileText
 } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -12,7 +12,7 @@ import { id as idLocale } from 'date-fns/locale';
 import {
   loadBanners, loadPaymentInfo, loadTickets, saveTicket, saveTicketMessage,
   loadTicketMessages, saveCustomer, loadFAQ, savePaymentProof, loadPaymentProofs,
-  saveSchedule, loadSchedules, loadReferrals, saveReferral
+  saveSchedule, loadSchedules, loadReferrals, saveReferral, saveApplication, loadApplications
 } from '../../utils/db';
 
 const fmtDate = d => { try { return format(new Date(d),'dd MMMM yyyy',{locale:idLocale}); } catch { return '-'; } };
@@ -137,7 +137,10 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
   const [schedForm, setSchedForm] = useState({ address:'', complaint:'', date:'', time:'' });
   const [faqOpen,   setFaqOpen]   = useState(null);
   const [referralCode, setReferralCode] = useState('');
-  const [referrals, setReferrals] = useState([]);
+  const [referrals,   setReferrals]  = useState([]);
+  const [appForm,     setAppForm]    = useState({ full_name:'', phone:'', profile:'', address:'', note:'' });
+  const [myApps,      setMyApps]     = useState([]);
+  const [ppoeProfiles, setPpoeProfiles] = useState([]);
 
   const record = billing?.find(b => b.username === customer.pppoe_username);
   const msgEndRef = useRef();
@@ -172,6 +175,18 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
       const mine = (d||[]).filter(r => r.referrer_username === customer.pppoe_username);
       setReferrals(mine);
     });
+    // Load customer applications
+    loadApplications().then(d => {
+      setMyApps((d||[]).filter(a =>
+        a.phone === customer.phone ||
+        a.phone === (customer.phone||'').replace(/\D/g,'')
+      ));
+    });
+    // Load PPPoE profiles for package selection
+    try {
+      const extras = JSON.parse(localStorage.getItem('bronet_profile_extras')||'{}');
+      setPpoeProfiles(Object.keys(extras).map(name => ({ name, price: extras[name]._price||0 })));
+    } catch {}
     loadTickets().then(d => {
       setTickets((d||[]).filter(t => t.pppoe_username===customer.pppoe_username || t.customer_id===customer.customer_id));
     });
@@ -220,6 +235,31 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
   }, [selTicket]);
 
   useEffect(() => { msgEndRef.current?.scrollIntoView({behavior:'smooth'}); }, [messages]);
+
+  const submitApplication = async () => {
+    if (!appForm.full_name || !appForm.phone) return toast.error('Nama dan No. HP wajib diisi');
+    setSaving(true);
+    try {
+      const app = {
+        id:         'app_' + Date.now(),
+        install_id: 'bronet_main',
+        full_name:  appForm.full_name.trim(),
+        phone:      appForm.phone.replace(/\D/g,''),
+        profile:    appForm.profile,
+        address:    appForm.address,
+        note:       appForm.note,
+        status:     'pending',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await saveApplication(app);
+      setMyApps(prev => [app, ...prev]);
+      setAppForm({ full_name:'', phone:'', profile:'', address:'', note:'' });
+      toast.success('Permohonan berhasil dikirim! Admin akan menghubungi Anda segera.');
+      setPage('app-status');
+    } catch(e) { toast.error('Gagal: ' + e.message); }
+    setSaving(false);
+  };
 
   const submitTicket = async () => {
     if (!newTicket.title) return toast.error('Judul tiket wajib diisi');
@@ -339,7 +379,7 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
   const navItems = [
     { key:'home',        icon:Bell,         label:'Beranda' },
     { key:'payment',     icon:CreditCard,    label:'Bayar' },
-    { key:'ticket-new',  icon:Ticket,        label:'Tiket' },
+    { key:'app-new',     icon:UserPlus,      label:'Daftar' },
     { key:'more',        icon:MessageSquare, label:'Lainnya' },
     { key:'profile',     icon:Key,           label:'Profil' },
   ];
@@ -712,6 +752,104 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── PERMOHONAN BARU ─────────────────────────────── */}
+        {page==='app-new' && (
+          <div className="space-y-4">
+            <h2 className="text-white font-bold text-lg flex items-center gap-2">
+              <UserPlus size={20} className="text-primary"/>Permohonan Pelanggan Baru
+            </h2>
+            <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4">
+              <p className="text-gray-300 text-sm">Isi form berikut untuk mendaftar sebagai pelanggan baru. Admin kami akan menghubungi Anda via WhatsApp untuk konfirmasi jadwal pemasangan.</p>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">Nama Lengkap *</label>
+                <input value={appForm.full_name} onChange={e=>setAppForm(p=>({...p,full_name:e.target.value}))}
+                  className="input-cyber w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Nama lengkap Anda"/>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">No. HP / WhatsApp *</label>
+                <input value={appForm.phone} onChange={e=>setAppForm(p=>({...p,phone:e.target.value}))} type="tel"
+                  className="input-cyber w-full px-3 py-2.5 rounded-xl text-sm mono" placeholder="08xxxxxxxxxx"/>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">Paket yang Diminati</label>
+                <select value={appForm.profile} onChange={e=>setAppForm(p=>({...p,profile:e.target.value}))}
+                  className="input-cyber w-full px-3 py-2.5 rounded-xl text-sm">
+                  <option value="">-- Pilih Paket --</option>
+                  {ppoeProfiles.map(prof => (
+                    <option key={prof.name} value={prof.name}>
+                      {prof.name}{prof.price > 0 ? ` — Rp ${prof.price.toLocaleString('id-ID')}/bln` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">Alamat Pemasangan</label>
+                <textarea value={appForm.address} onChange={e=>setAppForm(p=>({...p,address:e.target.value}))}
+                  rows={3} className="input-cyber w-full px-3 py-2.5 rounded-xl text-sm resize-none"
+                  placeholder="Alamat lengkap untuk pemasangan..."/>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">Catatan Tambahan</label>
+                <input value={appForm.note} onChange={e=>setAppForm(p=>({...p,note:e.target.value}))}
+                  className="input-cyber w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Info tambahan (opsional)"/>
+              </div>
+              <button onClick={submitApplication} disabled={saving}
+                className="w-full btn-primary py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+                <UserPlus size={16}/>{saving ? 'Mengirim...' : 'Kirim Permohonan'}
+              </button>
+            </div>
+            {myApps.length > 0 && (
+              <button onClick={() => setPage('app-status')} className="w-full py-2.5 rounded-xl border border-border text-gray-400 text-sm">
+                Lihat Status Permohonan ({myApps.length})
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── STATUS PERMOHONAN ────────────────────────────── */}
+        {page==='app-status' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-bold text-lg">Status Permohonan</h2>
+              <button onClick={() => setPage('app-new')} className="btn-primary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1">
+                <UserPlus size={13}/>Permohonan Baru
+              </button>
+            </div>
+            {myApps.length===0 && (
+              <div className="text-center py-10 text-gray-600">
+                <FileText size={36} className="mx-auto mb-3 opacity-30"/>
+                <p>Belum ada permohonan</p>
+              </div>
+            )}
+            {myApps.map(app => (
+              <div key={app.id} className="bg-card border border-border rounded-2xl p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="text-white font-semibold">{app.full_name}</p>
+                    <p className="text-gray-500 text-xs mono">{app.phone}</p>
+                  </div>
+                  <span className={clsx('text-xs px-2 py-1 rounded-full font-semibold',
+                    app.status==='pending'   ? 'bg-yellow-500/20 text-yellow-400' :
+                    app.status==='contacted' ? 'bg-blue-500/20 text-blue-400' :
+                    app.status==='approved'  ? 'bg-green-500/20 text-green-400' :
+                    'bg-red-500/20 text-red-400')}>
+                    {app.status==='pending'?'⏳ Menunggu':app.status==='contacted'?'📞 Dihubungi':app.status==='approved'?'✓ Disetujui':'✗ Ditolak'}
+                  </span>
+                </div>
+                {app.profile && <p className="text-primary text-sm">Paket: {app.profile}</p>}
+                {app.address && <p className="text-gray-500 text-xs mt-1">{app.address}</p>}
+                {app.admin_note && (
+                  <div className="mt-2 p-2.5 bg-darker rounded-lg text-xs text-gray-400 border border-border">
+                    <span className="text-primary font-semibold">Catatan Admin: </span>{app.admin_note}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
