@@ -10,6 +10,10 @@ export default function CustomerApp() {
   const [billing,  setBilling]  = useState([]);
   const [loading,  setLoading]  = useState(true);
 
+  const reloadBilling = () => {
+    loadBillingDB().then(d => setBilling(d || [])).catch(() => {});
+  };
+
   useEffect(() => {
     // Restore session
     try {
@@ -17,8 +21,11 @@ export default function CustomerApp() {
       if (saved) setCustomer(JSON.parse(saved));
     } catch {}
     // Load billing data
-    loadBillingDB().then(d => setBilling(d || [])).catch(() => {});
+    reloadBilling();
     setLoading(false);
+    // Expose reload function globally for CustomerDashboard
+    window.__bronetReloadBilling = reloadBilling;
+    return () => { delete window.__bronetReloadBilling; };
   }, []);
 
   const handleLogin = (cust) => {
