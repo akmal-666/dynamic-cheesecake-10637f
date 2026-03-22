@@ -643,3 +643,37 @@ export async function saveReferral(ref) {
   try { await supabase.from('bronet_referrals').upsert({ ...ref, install_id: INSTALL_ID }, { onConflict: 'id' }); }
   catch(e) { console.error('[DB] saveReferral:', e.message); }
 }
+
+// ─── PROFILE EXTRAS (harga profil — cross-device sync) ───────────────────────
+// Disimpan di bronet_settings.value sebagai field JSON: { profile_extras: {...} }
+const LS_PROFILE_EXTRAS = 'bronet_profile_extras';
+
+export async function loadProfileExtras() {
+  try {
+    if (supabaseReady) {
+      const { data, error } = await supabase.from('bronet_settings')
+        .select('value').eq('install_id', INSTALL_ID).single();
+      if (!error && data?.value?.profile_extras) {
+        const extras = data.value.profile_extras;
+        localStorage.setItem(LS_PROFILE_EXTRAS, JSON.stringify(extras));
+        return extras;
+      }
+    }
+  } catch(e) { console.error('[DB] loadProfileExtras:', e.message); }
+  try { return JSON.parse(localStorage.getItem(LS_PROFILE_EXTRAS) || '{}'); } catch { return {}; }
+}
+
+export async function saveProfileExtras(extras) {
+  localStorage.setItem(LS_PROFILE_EXTRAS, JSON.stringify(extras));
+  if (!supabaseReady) return;
+  try {
+    // Read current settings value, merge profile_extras into it
+    const { data } = await supabase.from('bronet_settings')
+      .select('value').eq('install_id', INSTALL_ID).single();
+    const currentValue = data?.value || {};
+    const newValue = { ...currentValue, profile_extras: extras };
+    await supabase.from('bronet_settings')
+      .upsert({ install_id: INSTALL_ID, value: newValue, updated_at: new Date().toISOString() },
+               { onConflict: 'install_id' });
+  } catch(e) { console.error('[DB] saveProfileExtras:', e.message); }
+}
