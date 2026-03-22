@@ -8,7 +8,17 @@ import toast from 'react-hot-toast';
 
 const WA_KEY = 'bronet_wa_settings';
 function getWASetting() { try { return JSON.parse(localStorage.getItem(WA_KEY) || '{}'); } catch { return {}; } }
-function saveWASetting(d) { localStorage.setItem(WA_KEY, JSON.stringify(d)); }
+function saveWASetting(d) {
+  localStorage.setItem(WA_KEY, JSON.stringify(d));
+  // Also embed in bronet_settings for cross-device sync
+  try {
+    import('../../utils/db').then(({ saveSettings, loadSettings }) => {
+      loadSettings().then(current => {
+        saveSettings({ ...current, wa_settings: d });
+      });
+    });
+  } catch {}
+}
 
 const DEFAULT_TEMPLATE = `Halo {nama},
 
