@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { MOCK_PPP_PROFILES } from '../../utils/mockData';
+import { loadProfileExtras, saveProfileExtras } from '../../utils/db';
 import { Plus, Edit2, Trash2, RefreshCw, Sliders, DollarSign } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
