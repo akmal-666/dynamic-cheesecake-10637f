@@ -4,23 +4,25 @@ import { useAuth } from '../contexts/AuthContext';
 import { Wifi, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export default function Login() {
-  const { login, user, loading } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Already logged in → redirect to dashboard
-  if (!loading && user) return <Navigate to="/admin/dashboard" replace />;
+  // All hooks must come before any return
   const [form, setForm] = useState({ username: '', password: '' });
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Already logged in → redirect to dashboard
+  if (!authLoading && user) return <Navigate to="/admin/dashboard" replace />;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setSubmitting(true);
     await new Promise(r => setTimeout(r, 500));
     const result = login(form.username, form.password);
-    setLoading(false);
+    setSubmitting(false);
     if (result.success) {
       navigate('/admin/dashboard');
     } else {
@@ -91,10 +93,10 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={submitting}
               className="btn-primary w-full py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed mt-2"
             >
-              {loading ? (
+              {submitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 border-2 border-dark border-t-transparent rounded-full spinner" />
                   Memproses...
