@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
+import { loadSettings, saveSettings as saveSettingsDB } from '../../utils/db';
 import { Settings as SettingsIcon, Wifi, WifiOff, Eye, EyeOff,
   CheckCircle, AlertCircle, RefreshCw, Save, Info, ExternalLink,
   ChevronDown, ChevronUp, Terminal, MessageCircle, Send, Loader } from 'lucide-react';
@@ -10,14 +11,9 @@ const WA_KEY = 'bronet_wa_settings';
 function getWASetting() { try { return JSON.parse(localStorage.getItem(WA_KEY) || '{}'); } catch { return {}; } }
 function saveWASetting(d) {
   localStorage.setItem(WA_KEY, JSON.stringify(d));
-  // Also embed in bronet_settings for cross-device sync
-  try {
-    import('../../utils/db').then(({ saveSettings, loadSettings }) => {
-      loadSettings().then(current => {
-        saveSettings({ ...current, wa_settings: d });
-      });
-    });
-  } catch {}
+  // Sync to Supabase via bronet_settings (cross-device)
+  // Called after saveSettingsDB imported at top level
+  window.__bronetSaveWA && window.__bronetSaveWA(d);
 }
 
 const DEFAULT_TEMPLATE = `Halo {nama},
@@ -63,6 +59,24 @@ export default function Settings() {
   const [waForm, setWaForm] = useState(() => ({
     provider: 'manual', token: '', testPhone: '', csPhone: '', template: DEFAULT_TEMPLATE, ...getWASetting()
   }));
+
+  // Load WA settings from Supabase on mount (cross-device sync)
+  useEffect(() => {
+    loadSettings().then(s => {
+      if (s?.wa_settings) {
+        const merged = { provider:'manual', token:'', testPhone:'', csPhone:'', template:DEFAULT_TEMPLATE, ...s.wa_settings };
+        setWaForm(merged);
+        localStorage.setItem(WA_KEY, JSON.stringify(merged));
+      }
+    }).catch(() => {});
+    // Expose WA save function globally
+    window.__bronetSaveWA = (d) => {
+      loadSettings().then(current => {
+        saveSettingsDB({ ...(current||{}), wa_settings: d });
+      }).catch(console.error);
+    };
+    return () => { delete window.__bronetSaveWA; };
+  }, []);
   const [testingWA, setTestingWA] = useState(false);
   const [showPass, setShowPass]     = useState(false);
   const [testing, setTesting]       = useState(false);
