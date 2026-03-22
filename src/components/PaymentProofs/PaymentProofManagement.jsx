@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { loadPaymentProofs, savePaymentProof } from '../../utils/db';
+import { loadPaymentProofs, savePaymentProof, loadBilling as loadBillingDB, saveAllBilling } from '../../utils/db';
 
 const fmtRp = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n||0);
 const fmtDate = d => { try { return format(new Date(d),'dd MMM yyyy HH:mm',{locale:idLocale}); } catch { return '-'; } };
@@ -24,7 +24,39 @@ export default function PaymentProofManagement() {
     const updated = { ...proof, status, admin_note: note, updated_at: new Date().toISOString() };
     await savePaymentProof(updated);
     setProofs(prev => prev.map(p => p.id===proof.id ? updated : p));
-    toast.success(status==='confirmed' ? 'Pembayaran dikonfirmasi!' : 'Pembayaran ditolak');
+
+    if (status === 'confirmed') {
+      // Update billing: set paidAt + add history
+      try {
+        // Read from localStorage first (most current), then Supabase
+        let billingData = [];
+        try { billingData = JSON.parse(localStorage.getItem('bronet_billing_v2') || '[]'); } catch {}
+        if (!billingData.length) billingData = await loadBillingDB() || [];
+
+        const now = new Date().toISOString();
+        let found = false;
+        const updatedBilling = billingData.map(b => {
+          if (b.username !== proof.pppoe_username) return b;
+          found = true;
+          const history = Array.isArray(b.history) ? b.history : [];
+          const histEntry = { paidAt: now, amount: Number(proof.amount)||0, note: 'Transfer dikonfirmasi admin' };
+          return { ...b, paidAt: now, history: [...history, histEntry] };
+        });
+
+        if (found) {
+          localStorage.setItem('bronet_billing_v2', JSON.stringify(updatedBilling));
+          await saveAllBilling(updatedBilling);
+          toast.success('✓ Pembayaran dikonfirmasi! Status tagihan customer terupdate.');
+        } else {
+          toast.success('Pembayaran dikonfirmasi! (Data billing tidak ditemukan, update manual di menu Tagihan)');
+        }
+      } catch(e) {
+        console.error('Billing sync error:', e.message);
+        toast.success('Pembayaran dikonfirmasi!');
+      }
+    } else {
+      toast.error('Pembayaran ditolak. Customer akan diberitahu.');
+    }
     setNote('');
   };
 
