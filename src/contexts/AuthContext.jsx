@@ -72,13 +72,15 @@ export function AuthProvider({ children }) {
 
   // ── On mount: restore session, then sync from DB ───────────────────────────
   useEffect(() => {
-    // 1. Restore session immediately from localStorage
+    // 1. Restore session immediately from localStorage → set loading=false right away
     const savedUser = localStorage.getItem('bronet_current_user');
     if (savedUser) {
       try { setUser(JSON.parse(savedUser)); } catch {}
     }
+    // Loading done once localStorage is read — don't wait for Supabase
+    setLoading(false);
 
-    // 2. Sync from DB in background
+    // 2. Sync from DB in background (non-blocking)
     Promise.all([loadWebUsers(), loadRolesDB()])
       .then(([dbUsers, dbRoles]) => {
         // ── MERGE strategy: DB + local, local wins for newer items ──
@@ -108,7 +110,7 @@ export function AuthProvider({ children }) {
       .catch(console.error)
       .finally(() => {
         dbSynced.current = true;
-        setLoading(false);
+        // loading already set to false above
       });
   }, []);
 
