@@ -73,6 +73,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public routes */}
+      <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
       <Route path="/admin/login" element={user ? <Navigate to="/admin/dashboard" replace /> : <Login />} />
       <Route path="/login"  element={<Navigate to="/admin/login" replace />} />
       <Route path="/mobile" element={<MobileApp />} />
@@ -99,12 +100,13 @@ function AppRoutes() {
       <Route path="/admin/applications" element={<AuthLayout permission="customers"><ApplicationManagement /></AuthLayout>} />
       <Route path="/admin/remote"    element={<AuthLayout permission="remote"><RemoteRouter /></AuthLayout>} />
 
-      {/* Customer Portal — root URL, catch all non-admin routes */}
+      {/* Customer Portal — root URL only */}
       <Route path="/" element={<CustomerApp />} />
-      <Route path="/*" element={<CustomerApp />} />
 
       {/* Fallbacks */}
-      <Route path="*"  element={<Navigate to={home} replace />} />
+      {/* Any unknown /admin/* → admin login, anything else → portal */}
+      <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
+      <Route path="*" element={<CustomerApp />} />
     </Routes>
   );
 }
