@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { MOCK_PPP_SECRETS, MOCK_PPP_ACTIVE, MOCK_PPP_PROFILES, parseComment, buildComment, generateUsername, generatePassword, generateCustomerId } from '../../utils/mockData';
+import { saveCustomer, loadCustomers, disableCustomerByPPPoE, enableCustomerByPPPoE } from '../../utils/db';
 import { Plus, Edit2, Trash2, Search, RefreshCw, User, Phone, Mail, Wifi, WifiOff, CheckCircle, XCircle, Eye, EyeOff, Copy, Package, Calendar } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
