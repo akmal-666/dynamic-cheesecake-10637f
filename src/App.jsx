@@ -72,10 +72,13 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/admin" element={user ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />} />
+      {/* Customer Portal — must be FIRST so React Router can distinguish */}
+      <Route path="/" element={<CustomerApp />} />
+
+      {/* Admin section — nested under /admin */}
       <Route path="/admin/login" element={<Login />} />
-      <Route path="/login"  element={<Navigate to="/admin/login" replace />} />
+      <Route path="/login" element={<Navigate to="/admin/login" replace />} />
+      <Route path="/admin" element={user ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />} />
       <Route path="/mobile" element={<MobileApp />} />
 
       {/* Protected routes — all share one Layout */}
