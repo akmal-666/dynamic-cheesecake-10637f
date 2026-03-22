@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import { loadExpenses, saveExpenses as saveExpensesDB } from '../../utils/db';
+import { loadExpenses, saveExpenses as saveExpensesDB, saveAllBilling } from '../../utils/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { MOCK_PPP_SECRETS, MOCK_PPP_PROFILES, parseComment } from '../../utils/mockData';
 import { exportXLSX, fmtRp, fmtDate } from '../../utils/exportXlsx';
@@ -71,6 +71,22 @@ export default function FinancialReport() {
       setLoading(false);
     });
   }, []);
+
+  // ── delete income entry (hapus dari billing history) ────────────────────────
+  const deleteIncomeEntry = (username, paidAt) => {
+    const currentBilling = getBilling();
+    const updated = currentBilling.map(b => {
+      if (b.username !== username) return b;
+      const newHistory = (b.history || []).filter(h => h.paidAt !== paidAt);
+      // If this was the last payment, also clear paidAt
+      const lastPaid = newHistory.length > 0 ? newHistory[newHistory.length - 1].paidAt : null;
+      return { ...b, history: newHistory, paidAt: lastPaid };
+    });
+    localStorage.setItem('bronet_billing_v2', JSON.stringify(updated));
+    setBilling(updated);
+    saveAllBilling(updated).catch(console.error);
+    toast.success('Data pemasukan dihapus!');
+  };
 
   // ── computed ──────────────────────────────────────────────────────────────
   const monthStr = format(curMonth, 'yyyy-MM');
