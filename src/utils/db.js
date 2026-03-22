@@ -740,3 +740,28 @@ export async function saveProfileExtras(extras) {
     }
   } catch(e) { console.error('[DB] saveProfileExtras EXCEPTION:', e.message); }
 }
+
+// ─── PERMOHONAN PELANGGAN BARU ────────────────────────────────────────────────
+const LS_APPLICATIONS = 'bronet_applications';
+
+export async function loadApplications() {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from('bronet_applications')
+      .select('*').eq('install_id', INSTALL_ID)
+      .order('created_at', { ascending: false });
+    if (!error && data) return data;
+  }
+  try { return JSON.parse(localStorage.getItem(LS_APPLICATIONS) || '[]'); } catch { return []; }
+}
+
+export async function saveApplication(app) {
+  const all = (() => { try { return JSON.parse(localStorage.getItem(LS_APPLICATIONS) || '[]'); } catch { return []; } })();
+  const idx = all.findIndex(a => a.id === app.id);
+  if (idx >= 0) all[idx] = app; else all.unshift(app);
+  localStorage.setItem(LS_APPLICATIONS, JSON.stringify(all));
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_applications')
+      .upsert({ ...app, install_id: INSTALL_ID }, { onConflict: 'id' });
+  } catch(e) { console.error('[DB] saveApplication:', e.message); }
+}
