@@ -33,8 +33,10 @@ const PROFILE_EXTRAS_KEY = 'bronet_profile_extras';
 function getExtras() {
   try { return JSON.parse(localStorage.getItem(PROFILE_EXTRAS_KEY) || '{}'); } catch { return {}; }
 }
+// saveExtras now also syncs to Supabase (called via saveProfileExtras from db.js)
 function saveExtras(extras) {
   localStorage.setItem(PROFILE_EXTRAS_KEY, JSON.stringify(extras));
+  saveProfileExtras(extras).catch(console.error); // async sync to Supabase
 }
 
 export default function Profiles() {
@@ -48,7 +50,22 @@ export default function Profiles() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [extras, setExtras] = useState(getExtras());
 
-  useEffect(() => { loadProfiles(); }, []);
+  useEffect(() => {
+    const init = async () => {
+      // Load profile extras from Supabase FIRST (cross-device sync)
+      try {
+        const dbExtras = await loadProfileExtras();
+        if (dbExtras && Object.keys(dbExtras).length > 0) {
+          setExtras(dbExtras);
+          // Also update localStorage so Billing reads fresh data
+          localStorage.setItem('bronet_profile_extras', JSON.stringify(dbExtras));
+        }
+      } catch(e) { console.error('loadProfileExtras:', e); }
+      // Then load profiles (which also reads extras)
+      await loadProfiles();
+    };
+    init();
+  }, []);
 
   const loadProfiles = async () => {
     setLoading(true);
