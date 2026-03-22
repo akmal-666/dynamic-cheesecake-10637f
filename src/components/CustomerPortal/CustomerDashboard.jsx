@@ -147,6 +147,26 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
     loadPaymentInfo().then(d => setPayInfo(d||[]));
     loadFAQ().then(d => setFaq((d||[]).filter(f=>f.active)));
     loadPaymentProofs(customer.pppoe_username).then(d => setProofs(d||[]));
+
+    // Poll proof status every 20s to detect admin confirmation
+    let prevProofStatuses = {};
+    const proofPoll = setInterval(async () => {
+      const fresh = await loadPaymentProofs(customer.pppoe_username);
+      const freshProofs = fresh || [];
+      setProofs(freshProofs);
+
+      // Detect newly confirmed proofs — reload billing
+      freshProofs.forEach(p => {
+        const wasNotConfirmed = prevProofStatuses[p.id] !== 'confirmed';
+        if (p.status === 'confirmed' && wasNotConfirmed) {
+          toast.success('✓ Pembayaran Anda telah dikonfirmasi admin!', { duration: 5000 });
+          // Signal parent to reload billing
+          if (window.__bronetReloadBilling) window.__bronetReloadBilling();
+        }
+        prevProofStatuses[p.id] = p.status;
+      });
+    }, 20000);
+    return () => clearInterval(proofPoll);
     loadSchedules(customer.pppoe_username).then(d => setSchedules(d||[]));
     loadReferrals().then(d => {
       const mine = (d||[]).filter(r => r.referrer_username === customer.pppoe_username);
@@ -220,8 +240,20 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
       };
       await saveTicket(ticket);
       setTickets(prev => [ticket,...prev]);
+
+      // Auto-reply from system
+      const autoReply = {
+        id:          String(Date.now() + 1),
+        ticket_id:   ticket.ticket_no,
+        sender_type: 'admin',
+        sender_name: 'Sistem Bronet',
+        message:     `Halo ${customer.full_name || customer.pppoe_username}, tiket Anda dengan nomor ${ticket.ticket_no} telah diterima. Tim kami akan segera menindaklanjuti. Mohon tunggu balasan dari admin kami. Terima kasih! 🙏`,
+        created_at:  new Date(Date.now() + 500).toISOString(),
+      };
+      await saveTicketMessage(autoReply);
+
       setNewTicket({title:'',desc:'',category:'Gangguan Internet'});
-      toast.success('Tiket berhasil dikirim!');
+      toast.success('Tiket berhasil dikirim! Kami akan segera merespons.');
       setPage('ticket-list');
     } catch(e) { toast.error('Gagal: '+e.message); }
     setSaving(false);
