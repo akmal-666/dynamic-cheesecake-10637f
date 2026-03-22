@@ -13,7 +13,7 @@ import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
 // DB helper - Supabase + localStorage fallback
-import { saveAllBilling, loadBilling as loadBillingDB, saveLog as saveLogDB, loadLogs as loadLogsDB, clearLogs as clearLogsDB } from '../../utils/db';
+import { saveAllBilling, loadBilling as loadBillingDB, loadProfileExtras, saveLog as saveLogDB, loadLogs as loadLogsDB, clearLogs as clearLogsDB } from '../../utils/db';
 
 const BILLING_KEY  = 'bronet_billing_v2';
 const WA_KEY       = 'bronet_wa_settings';
@@ -104,10 +104,16 @@ export default function Billing() {
   const loadData = async () => {
     setLoading(true);
     try {
-    // Re-read profileExtras fresh on every load (picks up price changes from Profiles menu)
-    const profileExtras = getProfileExtras();
-    console.log('[Billing] profileExtras keys:', Object.keys(profileExtras));
-    console.log('[Billing] profileExtras values:', JSON.stringify(profileExtras));
+    // Re-read profileExtras from Supabase (cross-device sync) + localStorage fallback
+    let profileExtras = getProfileExtras();
+    try {
+      const dbExtras = await loadProfileExtras();
+      if (dbExtras && Object.keys(dbExtras).length > 0) {
+        profileExtras = dbExtras;
+        localStorage.setItem('bronet_profile_extras', JSON.stringify(dbExtras));
+      }
+    } catch {}
+
     const [usersR, profilesR] = await Promise.all([
       callMikrotik('/ppp/secret', 'GET'),
       callMikrotik('/ppp/profile', 'GET'),
@@ -131,21 +137,26 @@ export default function Billing() {
       const prof  = rawProfiles.find(p => p.name === u.profile);
       // Resolusi harga: extras > profil Mikrotik > 0
       const price = Number(extra._price) || Number(prof?._price) || 0;
-      console.log(`[Billing] ${u.name} profile="${u.profile}" extra._price=${extra._price} prof._price=${prof?._price} → price=${price}`);
+
 
       // Calculate dueDate: same day-of-month as install, rolling monthly
       const calcDueDate = (iDate) => {
-        const base = iDate ? new Date(iDate) : new Date();
-        const installDay = base.getDate(); // e.g. 15
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        // Try this month first
-        let due = new Date(today.getFullYear(), today.getMonth(), installDay);
-        // If already passed, move to next month
-        if (due <= today) {
-          due = new Date(today.getFullYear(), today.getMonth() + 1, installDay);
+        try {
+          const base = (iDate && !isNaN(new Date(iDate).getTime()))
+            ? new Date(iDate)
+            : new Date();
+          const installDay = base.getDate();
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          let due = new Date(today.getFullYear(), today.getMonth(), installDay);
+          if (due <= today) {
+            due = new Date(today.getFullYear(), today.getMonth() + 1, installDay);
+          }
+          return format(due, 'yyyy-MM-dd');
+        } catch {
+          // Fallback: 30 hari dari sekarang
+          return format(new Date(Date.now() + 30 * 86400000), 'yyyy-MM-dd');
         }
-        return format(due, 'yyyy-MM-dd');
       };
 
       if (!exists) {
