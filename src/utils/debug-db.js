@@ -535,23 +535,31 @@ export async function saveCustomer(customer) {
 
 // ─── SYNC PORTAL CUSTOMER STATUS ─────────────────────────────────────────────
 export async function disableCustomerByPPPoE(pppoeUsername) {
+  console.log('[DB] disableCustomerByPPPoE:', pppoeUsername);
   // Update localStorage
   try {
     const all = JSON.parse(localStorage.getItem('bronet_customers') || '[]');
+    const found = all.find(c => c.pppoe_username === pppoeUsername);
+    console.log('[DB] localStorage customer found:', found ? 'YES' : 'NO', 'total:', all.length);
     const updated = all.map(c =>
       c.pppoe_username === pppoeUsername ? { ...c, active: false } : c
     );
     localStorage.setItem('bronet_customers', JSON.stringify(updated));
-  } catch {}
+  } catch(e) { console.error('[DB] localStorage update error:', e); }
   // Update Supabase directly
-  if (!supabaseReady) return;
+  if (!supabaseReady) { console.warn('[DB] Supabase not ready'); return; }
   try {
-    await supabase.from('bronet_customers')
+    const { data, error, count } = await supabase.from('bronet_customers')
       .update({ active: false })
       .eq('install_id', INSTALL_ID)
-      .eq('pppoe_username', pppoeUsername);
-    console.log('[DB] disableCustomerByPPPoE:', pppoeUsername);
-  } catch(e) { console.error('[DB] disableCustomerByPPPoE:', e.message); }
+      .eq('pppoe_username', pppoeUsername)
+      .select();
+    if (error) {
+      console.error('[DB] disableCustomerByPPPoE SUPABASE ERROR:', error.message);
+    } else {
+      console.log('[DB] disableCustomerByPPPoE SUPABASE SUCCESS, rows updated:', data?.length, data);
+    }
+  } catch(e) { console.error('[DB] disableCustomerByPPPoE EXCEPTION:', e.message); }
 }
 
 export async function enableCustomerByPPPoE(pppoeUsername) {
@@ -713,26 +721,22 @@ export async function loadProfileExtras() {
 }
 
 export async function saveProfileExtras(extras) {
+  console.log('[DB] saveProfileExtras START', Object.keys(extras));
   localStorage.setItem(LS_PROFILE_EXTRAS, JSON.stringify(extras));
-  if (!supabaseReady) return;
+  if (!supabaseReady) { console.warn('[DB] Supabase not ready - saved to localStorage only'); return; }
   try {
-    // Use Postgres jsonb merge operator — single round-trip, no read needed
-    const { error } = await supabase.rpc('merge_setting_value', {
-      p_install_id: INSTALL_ID,
-      p_key:        'profile_extras',
-      p_value:      JSON.stringify(extras),
-    });
-    if (error) throw error;
-  } catch {
-    // Fallback: manual read-merge-write
-    try {
-      const { data } = await supabase.from('bronet_settings')
-        .select('value').eq('install_id', INSTALL_ID).single();
-      const merged = { ...(data?.value || {}), profile_extras: extras };
-      await supabase.from('bronet_settings').upsert(
-        { install_id: INSTALL_ID, value: merged, updated_at: new Date().toISOString() },
-        { onConflict: 'install_id' }
-      );
-    } catch(e2) { console.error('[DB] saveProfileExtras fallback:', e2.message); }
-  }
+    const { data: cur, error: readErr } = await supabase.from('bronet_settings')
+      .select('value').eq('install_id', INSTALL_ID).single();
+    if (readErr) console.warn('[DB] read settings error:', readErr.message);
+    const merged = { ...(cur?.value || {}), profile_extras: extras };
+    const { error: writeErr } = await supabase.from('bronet_settings').upsert(
+      { install_id: INSTALL_ID, value: merged, updated_at: new Date().toISOString() },
+      { onConflict: 'install_id' }
+    );
+    if (writeErr) {
+      console.error('[DB] saveProfileExtras WRITE ERROR:', writeErr.message, writeErr);
+    } else {
+      console.log('[DB] saveProfileExtras SUCCESS - saved to Supabase');
+    }
+  } catch(e) { console.error('[DB] saveProfileExtras EXCEPTION:', e.message); }
 }
