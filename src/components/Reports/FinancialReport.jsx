@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import { loadExpenses, saveExpenses as saveExpensesDB, saveAllBilling } from '../../utils/db';
+import { loadExpenses, saveExpenses as saveExpensesDB, saveAllBilling, loadBilling as loadBillingDB } from '../../utils/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { MOCK_PPP_SECRETS, MOCK_PPP_PROFILES, parseComment } from '../../utils/mockData';
 import { exportXLSX, fmtRp, fmtDate } from '../../utils/exportXlsx';
@@ -62,12 +62,14 @@ export default function FinancialReport() {
   }, []);
 
   useEffect(() => {
+    // Load expenses from Supabase
     loadExpenses().then(saved => { if(saved?.length) setExpenses(saved); }).catch(()=>{});
+    // Load billing from Supabase (cross-device sync)
+    loadBillingDB().then(saved => { if(saved?.length) { setBilling(saved); localStorage.setItem('bronet_billing_v2', JSON.stringify(saved)); }}).catch(()=>{});
     setLoading(true);
     Promise.all([callMikrotik('/ppp/secret','GET'), callMikrotik('/ppp/profile','GET')]).then(([ur,pr]) => {
       setUsers(ur.success && Array.isArray(ur.data) ? ur.data : MOCK_PPP_SECRETS);
       setProfiles(pr.success && Array.isArray(pr.data) ? pr.data : MOCK_PPP_PROFILES);
-      setBilling(getBilling());
       setLoading(false);
     });
   }, []);
