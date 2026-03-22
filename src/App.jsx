@@ -105,7 +105,6 @@ function AppRoutes() {
 
       {/* Fallbacks */}
       {/* Any unknown /admin/* → admin login, anything else → portal */}
-      <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
       <Route path="*" element={<CustomerApp />} />
     </Routes>
   );
