@@ -68,42 +68,42 @@ function AuthLayout({ permission, children }) {
 
 function AppRoutes() {
   const { user } = useAuth();
-  const home = user ? '/dashboard' : '/login';
+  const home = user ? '/admin/dashboard' : '/admin/login';
 
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/login"  element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/admin/login" element={user ? <Navigate to="/admin/dashboard" replace /> : <Login />} />
+      <Route path="/login"  element={<Navigate to="/admin/login" replace />} />
       <Route path="/mobile" element={<MobileApp />} />
 
       {/* Protected routes — all share one Layout */}
-      <Route path="/dashboard" element={<AuthLayout permission="dashboard"><Dashboard /></AuthLayout>} />
-      <Route path="/users"     element={<AuthLayout permission="users"><Users /></AuthLayout>} />
-      <Route path="/profiles"  element={<AuthLayout permission="profiles"><Profiles /></AuthLayout>} />
-      <Route path="/billing"   element={<AuthLayout permission="billing"><Billing /></AuthLayout>} />
-      <Route path="/settings"  element={<AuthLayout permission="settings"><Settings /></AuthLayout>} />
-      <Route path="/usermgmt"  element={<AuthLayout permission="usermgmt"><UserManagement /></AuthLayout>} />
-      <Route path="/roles"     element={<AuthLayout permission="roles"><Roles /></AuthLayout>} />
-      <Route path="/whatsapp"  element={<AuthLayout permission="settings"><WhatsAppGuide /></AuthLayout>} />
-      <Route path="/financial" element={<AuthLayout permission="reports"><FinancialReport /></AuthLayout>} />
-      <Route path="/unpaid"    element={<AuthLayout permission="reports"><UnpaidReport /></AuthLayout>} />
-      <Route path="/assets"    element={<AuthLayout permission="assets"><AssetManagement /></AuthLayout>} />
-      <Route path="/banners"   element={<AuthLayout permission="banners"><BannerManagement /></AuthLayout>} />
-      <Route path="/payment-info" element={<AuthLayout permission="payment-info"><PaymentInfo /></AuthLayout>} />
-      <Route path="/tickets"   element={<AuthLayout permission="tickets"><TicketManagement /></AuthLayout>} />
-      <Route path="/customers"  element={<AuthLayout permission="customers"><CustomerAccounts /></AuthLayout>} />
-      <Route path="/faq"         element={<AuthLayout permission="banners"><FAQManagement /></AuthLayout>} />
-      <Route path="/tech-schedule" element={<AuthLayout permission="tickets"><TechScheduleManagement /></AuthLayout>} />
-      <Route path="/payment-proofs" element={<AuthLayout permission="billing-lunas"><PaymentProofManagement /></AuthLayout>} />
-      <Route path="/applications" element={<AuthLayout permission="customers"><ApplicationManagement /></AuthLayout>} />
-      <Route path="/remote"    element={<AuthLayout permission="remote"><RemoteRouter /></AuthLayout>} />
 
-      {/* Customer Portal — no auth required (own auth system) */}
-      <Route path="/portal" element={<CustomerApp />} />
-      <Route path="/portal/*" element={<CustomerApp />} />
+      <Route path="/admin/users"     element={<AuthLayout permission="users"><Users /></AuthLayout>} />
+      <Route path="/admin/profiles"  element={<AuthLayout permission="profiles"><Profiles /></AuthLayout>} />
+      <Route path="/admin/billing"   element={<AuthLayout permission="billing"><Billing /></AuthLayout>} />
+      <Route path="/admin/settings"  element={<AuthLayout permission="settings"><Settings /></AuthLayout>} />
+      <Route path="/admin/usermgmt"  element={<AuthLayout permission="usermgmt"><UserManagement /></AuthLayout>} />
+      <Route path="/admin/roles"     element={<AuthLayout permission="roles"><Roles /></AuthLayout>} />
+      <Route path="/admin/whatsapp"  element={<AuthLayout permission="settings"><WhatsAppGuide /></AuthLayout>} />
+      <Route path="/admin/financial" element={<AuthLayout permission="reports"><FinancialReport /></AuthLayout>} />
+      <Route path="/admin/unpaid"    element={<AuthLayout permission="reports"><UnpaidReport /></AuthLayout>} />
+      <Route path="/admin/assets"    element={<AuthLayout permission="assets"><AssetManagement /></AuthLayout>} />
+      <Route path="/admin/banners"   element={<AuthLayout permission="banners"><BannerManagement /></AuthLayout>} />
+      <Route path="/admin/payment-info" element={<AuthLayout permission="payment-info"><PaymentInfo /></AuthLayout>} />
+      <Route path="/admin/tickets"   element={<AuthLayout permission="tickets"><TicketManagement /></AuthLayout>} />
+      <Route path="/admin/customers"  element={<AuthLayout permission="customers"><CustomerAccounts /></AuthLayout>} />
+      <Route path="/admin/faq"         element={<AuthLayout permission="banners"><FAQManagement /></AuthLayout>} />
+      <Route path="/admin/tech-schedule" element={<AuthLayout permission="tickets"><TechScheduleManagement /></AuthLayout>} />
+      <Route path="/admin/payment-proofs" element={<AuthLayout permission="billing-lunas"><PaymentProofManagement /></AuthLayout>} />
+      <Route path="/admin/applications" element={<AuthLayout permission="customers"><ApplicationManagement /></AuthLayout>} />
+      <Route path="/admin/remote"    element={<AuthLayout permission="remote"><RemoteRouter /></AuthLayout>} />
+
+      {/* Customer Portal — root URL, catch all non-admin routes */}
+      <Route path="/" element={<CustomerApp />} />
+      <Route path="/*" element={<CustomerApp />} />
 
       {/* Fallbacks */}
-      <Route path="/"  element={<Navigate to={home} replace />} />
       <Route path="*"  element={<Navigate to={home} replace />} />
     </Routes>
   );
