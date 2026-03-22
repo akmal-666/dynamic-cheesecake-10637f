@@ -67,11 +67,8 @@ function AuthLayout({ permission, children }) {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const home = user ? '/admin/dashboard' : '/admin/login';
-
-  // Show loading screen while auth state resolves
-  if (loading) return <LoadingScreen />;
 
   return (
     <Routes>
