@@ -67,14 +67,17 @@ function AuthLayout({ permission, children }) {
 }
 
 function AppRoutes() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const home = user ? '/admin/dashboard' : '/admin/login';
+
+  // Show loading screen while auth state resolves
+  if (loading) return <LoadingScreen />;
 
   return (
     <Routes>
       {/* Public routes */}
       <Route path="/admin" element={user ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />} />
-      <Route path="/admin/login" element={user ? <Navigate to="/admin/dashboard" replace /> : <Login />} />
+      <Route path="/admin/login" element={<Login />} />
       <Route path="/login"  element={<Navigate to="/admin/login" replace />} />
       <Route path="/mobile" element={<MobileApp />} />
 
