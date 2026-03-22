@@ -379,7 +379,7 @@ export default function CustomerDashboard({ customer, billing, onLogout }) {
   const navItems = [
     { key:'home',        icon:Bell,         label:'Beranda' },
     { key:'payment',     icon:CreditCard,    label:'Bayar' },
-    { key:'app-new',     icon:UserPlus,      label:'Daftar' },
+    { key:'ticket-new',  icon:Ticket,        label:'Tiket' },
     { key:'more',        icon:MessageSquare, label:'Lainnya' },
     { key:'profile',     icon:Key,           label:'Profil' },
   ];
