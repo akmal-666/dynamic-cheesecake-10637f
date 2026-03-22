@@ -58,7 +58,7 @@ function AuthLayout({ permission, children }) {
   const { user, loading, hasPermission } = useAuth();
   // Wait until auth state resolved
   if (loading) return <LoadingScreen />;
-  if (!user)   return <Navigate to="/login" replace />;
+  if (!user)   return <Navigate to="/admin/login" replace />;
   return (
     <Layout>
       {permission && !hasPermission(permission) ? <AccessDenied /> : children}
@@ -73,7 +73,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="/admin" element={user ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />} />
       <Route path="/admin/login" element={user ? <Navigate to="/admin/dashboard" replace /> : <Login />} />
       <Route path="/login"  element={<Navigate to="/admin/login" replace />} />
       <Route path="/mobile" element={<MobileApp />} />
