@@ -23,6 +23,7 @@ import RemoteRouter from './components/Remote/RemoteRouter';
 import CustomerApp from './components/CustomerPortal/CustomerApp';
 import CustomerAccounts from './components/Customers/CustomerAccounts';
 import FAQManagement from './components/FAQ/FAQManagement';
+import ApplicationManagement from './components/Applications/ApplicationManagement';
 import TechScheduleManagement from './components/TechSchedule/TechScheduleManagement';
 import PaymentProofManagement from './components/PaymentProofs/PaymentProofManagement';
 import MobileApp from './components/Mobile/MobileApp';
@@ -94,6 +95,7 @@ function AppRoutes() {
       <Route path="/faq"         element={<AuthLayout permission="banners"><FAQManagement /></AuthLayout>} />
       <Route path="/tech-schedule" element={<AuthLayout permission="tickets"><TechScheduleManagement /></AuthLayout>} />
       <Route path="/payment-proofs" element={<AuthLayout permission="billing-lunas"><PaymentProofManagement /></AuthLayout>} />
+      <Route path="/applications" element={<AuthLayout permission="customers"><ApplicationManagement /></AuthLayout>} />
       <Route path="/remote"    element={<AuthLayout permission="remote"><RemoteRouter /></AuthLayout>} />
 
       {/* Customer Portal — no auth required (own auth system) */}
