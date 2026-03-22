@@ -12,31 +12,31 @@ import clsx from 'clsx';
 
 const navItems = [
   // Monitoring
-  { path: '/dashboard',  label: 'Dashboard Trafik',    icon: LayoutDashboard, permission: 'dashboard' },
-  { path: '/users',      label: 'User PPPoE',           icon: Users,           permission: 'users' },
-  { path: '/profiles',   label: 'Profil Paket',         icon: Sliders,         permission: 'profiles' },
-  { path: '/remote',     label: 'Remote Router',        icon: Radio,           permission: 'remote' },
+  { path: '/admin/dashboard',  label: 'Dashboard Trafik',    icon: LayoutDashboard, permission: 'dashboard' },
+  { path: '/admin/users',      label: 'User PPPoE',           icon: Users,           permission: 'users' },
+  { path: '/admin/profiles',   label: 'Profil Paket',         icon: Sliders,         permission: 'profiles' },
+  { path: '/admin/remote',     label: 'Remote Router',        icon: Radio,           permission: 'remote' },
   // Tagihan
-  { path: '/billing',    label: 'Tagihan & Reminder',   icon: CreditCard,      permission: 'billing' },
+  { path: '/admin/billing',    label: 'Tagihan & Reminder',   icon: CreditCard,      permission: 'billing' },
   // Laporan
-  { path: '/financial',  label: 'Lap. Keuangan',        icon: BarChart2,       permission: 'reports' },
-  { path: '/unpaid',     label: 'Lap. Belum Bayar',     icon: UserX,           permission: 'reports' },
+  { path: '/admin/financial',  label: 'Lap. Keuangan',        icon: BarChart2,       permission: 'reports' },
+  { path: '/admin/unpaid',     label: 'Lap. Belum Bayar',     icon: UserX,           permission: 'reports' },
   // Aset
-  { path: '/assets',     label: 'Asset Management',     icon: Package,         permission: 'assets' },
+  { path: '/admin/assets',     label: 'Asset Management',     icon: Package,         permission: 'assets' },
   // Customer Portal
-  { path: '/banners',    label: 'Banner Management',    icon: Image,           permission: 'banners' },
-  { path: '/payment-info', label: 'Info Pembayaran',    icon: Banknote,        permission: 'payment-info' },
-  { path: '/tickets',    label: 'Tiket Aduan',          icon: Ticket,          permission: 'tickets' },
-  { path: '/customers',    label: 'Akun Customer Portal',  icon: Users,           permission: 'customers' },
-  { path: '/applications',  label: 'Permohonan Pelanggan',  icon: UserPlus,        permission: 'customers' },
-  { path: '/faq',           label: 'FAQ / Knowledge Base',  icon: HelpCircle,      permission: 'banners' },
-  { path: '/tech-schedule', label: 'Jadwal Teknisi',        icon: Wrench,          permission: 'tickets' },
-  { path: '/payment-proofs',label: 'Bukti Pembayaran',      icon: Upload,          permission: 'billing-lunas' },
+  { path: '/admin/banners',    label: 'Banner Management',    icon: Image,           permission: 'banners' },
+  { path: '/admin/payment-info', label: 'Info Pembayaran',    icon: Banknote,        permission: 'payment-info' },
+  { path: '/admin/tickets',    label: 'Tiket Aduan',          icon: Ticket,          permission: 'tickets' },
+  { path: '/admin/customers',    label: 'Akun Customer Portal',  icon: Users,           permission: 'customers' },
+  { path: '/admin/applications',  label: 'Permohonan Pelanggan',  icon: UserPlus,        permission: 'customers' },
+  { path: '/admin/faq',           label: 'FAQ / Knowledge Base',  icon: HelpCircle,      permission: 'banners' },
+  { path: '/admin/tech-schedule', label: 'Jadwal Teknisi',        icon: Wrench,          permission: 'tickets' },
+  { path: '/admin/payment-proofs',label: 'Bukti Pembayaran',      icon: Upload,          permission: 'billing-lunas' },
   // Admin
-  { path: '/settings',   label: 'Pengaturan',           icon: Settings,        permission: 'settings' },
-  { path: '/usermgmt',   label: 'User Management',      icon: Shield,          permission: 'usermgmt' },
-  { path: '/roles',      label: 'Manajemen Role',       icon: ShieldCheck,     permission: 'roles' },
-  { path: '/whatsapp',   label: 'Panduan WhatsApp',     icon: MessageCircle,   permission: 'settings' },
+  { path: '/admin/settings',   label: 'Pengaturan',           icon: Settings,        permission: 'settings' },
+  { path: '/admin/usermgmt',   label: 'User Management',      icon: Shield,          permission: 'usermgmt' },
+  { path: '/admin/roles',      label: 'Manajemen Role',       icon: ShieldCheck,     permission: 'roles' },
+  { path: '/admin/whatsapp',   label: 'Panduan WhatsApp',     icon: MessageCircle,   permission: 'settings' },
 ];
 
 export default function Layout({ children }) {
