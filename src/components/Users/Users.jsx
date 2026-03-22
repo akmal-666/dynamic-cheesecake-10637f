@@ -251,14 +251,16 @@ export default function Users() {
     const result = await callMikrotik(`/ppp/secret/${user['.id']}`, 'DELETE');
     if (result.success) {
       setUsers(prev => prev.filter(u => u['.id'] !== user['.id']));
+      // Disable portal customer account
+      syncPortalCustomer(user.name, false);
       toast.success('User berhasil dihapus dari Mikrotik!');
     } else if (!usingMikrotik) {
-      // Offline mode — delete from localStorage
       setUsers(prev => {
         const updated = prev.filter(u => u['.id'] !== user['.id']);
         saveLocalUsers(updated);
         return updated;
       });
+      syncPortalCustomer(user.name, false);
       toast.success('User dihapus (lokal)');
     } else {
       toast.error('Gagal menghapus: ' + result.error);
@@ -275,7 +277,9 @@ export default function Users() {
         if (!usingMikrotik) saveLocalUsers(updated);
         return updated;
       });
-      toast.success(newState === 'true' ? 'User dinonaktifkan' : 'User diaktifkan');
+      // Sync portal customer: disabled PPPoE = nonaktif portal
+      syncPortalCustomer(user.name, newState === 'false');
+      toast.success(newState === 'true' ? 'User dinonaktifkan (portal ikut nonaktif)' : 'User diaktifkan (portal ikut aktif)');
     } else {
       toast.error('Gagal: ' + result.error);
     }
