@@ -532,6 +532,48 @@ export async function saveCustomer(customer) {
   } catch(e) { console.error('[DB] saveCustomer:', e.message); }
 }
 
+
+// ─── SYNC PORTAL CUSTOMER STATUS ─────────────────────────────────────────────
+export async function disableCustomerByPPPoE(pppoeUsername) {
+  // Update localStorage
+  try {
+    const all = JSON.parse(localStorage.getItem('bronet_customers') || '[]');
+    const updated = all.map(c =>
+      c.pppoe_username === pppoeUsername ? { ...c, active: false } : c
+    );
+    localStorage.setItem('bronet_customers', JSON.stringify(updated));
+  } catch {}
+  // Update Supabase directly
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_customers')
+      .update({ active: false })
+      .eq('install_id', INSTALL_ID)
+      .eq('pppoe_username', pppoeUsername);
+    console.log('[DB] disableCustomerByPPPoE:', pppoeUsername);
+  } catch(e) { console.error('[DB] disableCustomerByPPPoE:', e.message); }
+}
+
+export async function enableCustomerByPPPoE(pppoeUsername) {
+  // Update localStorage
+  try {
+    const all = JSON.parse(localStorage.getItem('bronet_customers') || '[]');
+    const updated = all.map(c =>
+      c.pppoe_username === pppoeUsername ? { ...c, active: true } : c
+    );
+    localStorage.setItem('bronet_customers', JSON.stringify(updated));
+  } catch {}
+  // Update Supabase directly
+  if (!supabaseReady) return;
+  try {
+    await supabase.from('bronet_customers')
+      .update({ active: true })
+      .eq('install_id', INSTALL_ID)
+      .eq('pppoe_username', pppoeUsername);
+    console.log('[DB] enableCustomerByPPPoE:', pppoeUsername);
+  } catch(e) { console.error('[DB] enableCustomerByPPPoE:', e.message); }
+}
+
 export async function findCustomerByPhone(phone) {
   const clean = phone.replace(/\D/g, '');
   // Build all possible formats: 08xxx, 628xxx, 8xxx
@@ -542,16 +584,23 @@ export async function findCustomerByPhone(phone) {
     clean.startsWith('0')  ? clean.slice(1) : clean,
   ];
 
-  // Also search by pppoe_username in case phone wasn't set
+  // Always fetch fresh from Supabase (catches active=false from disable/delete)
   if (supabaseReady) {
     const { data } = await supabase.from('bronet_customers')
       .select('*').eq('install_id', INSTALL_ID);
     if (data?.length) {
-      const found = data.find(c => {
+      // Search by phone
+      const byPhone = data.find(c => {
         const cp = (c.phone || '').replace(/\D/g,'');
         return variants.some(v => cp === v || cp.includes(v) || v.includes(cp));
       });
-      if (found) return found;
+      if (byPhone) return byPhone;
+      // Search by pppoe_username (in case user types username not phone)
+      const byUsername = data.find(c =>
+        c.pppoe_username === phone.trim() ||
+        c.pppoe_username === phone.trim().toLowerCase()
+      );
+      if (byUsername) return byUsername;
     }
   }
 
@@ -667,13 +716,23 @@ export async function saveProfileExtras(extras) {
   localStorage.setItem(LS_PROFILE_EXTRAS, JSON.stringify(extras));
   if (!supabaseReady) return;
   try {
-    // Read current settings value, merge profile_extras into it
-    const { data } = await supabase.from('bronet_settings')
-      .select('value').eq('install_id', INSTALL_ID).single();
-    const currentValue = data?.value || {};
-    const newValue = { ...currentValue, profile_extras: extras };
-    await supabase.from('bronet_settings')
-      .upsert({ install_id: INSTALL_ID, value: newValue, updated_at: new Date().toISOString() },
-               { onConflict: 'install_id' });
-  } catch(e) { console.error('[DB] saveProfileExtras:', e.message); }
+    // Use Postgres jsonb merge operator — single round-trip, no read needed
+    const { error } = await supabase.rpc('merge_setting_value', {
+      p_install_id: INSTALL_ID,
+      p_key:        'profile_extras',
+      p_value:      JSON.stringify(extras),
+    });
+    if (error) throw error;
+  } catch {
+    // Fallback: manual read-merge-write
+    try {
+      const { data } = await supabase.from('bronet_settings')
+        .select('value').eq('install_id', INSTALL_ID).single();
+      const merged = { ...(data?.value || {}), profile_extras: extras };
+      await supabase.from('bronet_settings').upsert(
+        { install_id: INSTALL_ID, value: merged, updated_at: new Date().toISOString() },
+        { onConflict: 'install_id' }
+      );
+    } catch(e2) { console.error('[DB] saveProfileExtras fallback:', e2.message); }
+  }
 }
