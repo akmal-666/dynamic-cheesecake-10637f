@@ -15,7 +15,7 @@ const INSTALL_ID = 'bronet_main';
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 const LS_SETTINGS = 'bronet_settings';
 const DEFAULT_SETTINGS = {
-  host: '', port: '80', username: '', password: '', connected: false, lastCheck: null,
+  host: '202.59.200.225', port: '80', username: 'admin1', password: 'mandiri123!', connected: false, lastCheck: null,
 };
 
 export async function loadSettings() {
