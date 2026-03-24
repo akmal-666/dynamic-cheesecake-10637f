@@ -1,103 +1,108 @@
-import http  from 'http';
-import https from 'https';
-
-export const config = {
-  api: { bodyParser: true },
-};
+/**
+ * Vercel Serverless Function — Proxy ke Mikrotik REST API
+ * File: api/mikrotik.js
+ */
 
 const CORS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
 };
 
-function makeRequest(url, method, auth, bodyData) {
-  return new Promise((resolve, reject) => {
-    const urlObj    = new URL(url);
-    const lib       = urlObj.protocol === 'https:' ? https : http;
-    const reqMethod = method.toUpperCase();
-    const hasBody   = ['PUT','PATCH','POST'].includes(reqMethod) && bodyData != null;
-    const reqBody   = hasBody ? JSON.stringify(bodyData) : null;
+export const config = {
+  runtime: 'edge',
+};
 
-    const options = {
-      hostname: urlObj.hostname,
-      port:     parseInt(urlObj.port) || (urlObj.protocol === 'https:' ? 443 : 80),
-      path:     urlObj.pathname + (urlObj.search || ''),
-      method:   reqMethod,
-      headers: {
-        'Authorization': 'Basic ' + auth,
-        'Accept': 'application/json',
-        ...(reqBody ? {
-          'Content-Type':   'application/json',
-          'Content-Length': Buffer.byteLength(reqBody),
-        } : {}),
-      },
-      timeout: 15000,
-      rejectUnauthorized: false,
-    };
-
-    const req = lib.request(options, (res) => {
-      let body = '';
-      res.on('data', c => { body += c; });
-      res.on('end', () => resolve({ statusCode: res.statusCode, body }));
-    });
-    req.on('error',   err => reject(new Error('Koneksi gagal: ' + err.message)));
-    req.on('timeout', ()  => { req.destroy(); reject(new Error('Timeout — Mikrotik tidak merespons')); });
-    if (reqBody) req.write(reqBody);
-    req.end();
-  });
-}
-
-export default async function handler(req, res) {
-  Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
-
-  try {
-    const body = req.body || {};
-    const { host, port = 80, username, password, path, method = 'GET', data } = body;
-
-    if (!host || !username || !password || !path)
-      return res.status(400).json({ error: 'Parameter wajib: host, username, password, path' });
-
-    const auth       = Buffer.from(`${username}:${password}`).toString('base64');
-    const httpMethod = method.toUpperCase();
-    const candidates = [`http://${host}:${port}/rest${path}`];
-    if (String(port) !== '8080') candidates.push(`http://${host}:8080/rest${path}`);
-
-    let lastError = 'Tidak dapat terhubung ke Mikrotik';
-    let lastStatus = 0;
-
-    for (const url of candidates) {
-      try {
-        const result = await makeRequest(url, httpMethod, auth, data);
-
-        if (result.statusCode === 401)
-          return res.status(401).json({ error: 'Login gagal — username atau password salah' });
-
-        if (result.statusCode === 404) {
-          lastStatus = 404;
-          lastError  = 'REST API tidak ditemukan. Pastikan RouterOS v7.1+';
-          continue;
-        }
-
-        if (httpMethod === 'DELETE' && [200, 204].includes(result.statusCode))
-          return res.status(200).json({ success: true });
-
-        res.setHeader('Content-Type', 'application/json');
-        return res.status(result.statusCode).send(result.body || 'null');
-
-      } catch (err) { lastError = err.message; }
-    }
-
-    const hint = lastStatus === 404
-      ? 'Winbox > IP > Services > www > Enable. RouterOS minimal v7.1'
-      : `Pastikan IP ${host} dapat diakses dari internet dan port ${port} terbuka`;
-
-    return res.status(503).json({ error: lastError, hint, tried: candidates });
-
-  } catch (err) {
-    return res.status(500).json({ error: 'Server error: ' + err.message });
+export default async function handler(request) {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: CORS });
   }
+
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405, headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Request body bukan JSON' }), {
+      status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { host, port = 80, username, password, path, method = 'GET', data } = body;
+
+  if (!host || !username || !password || !path) {
+    return new Response(JSON.stringify({ error: 'Parameter wajib: host, username, password, path' }), {
+      status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const auth      = btoa(`${username}:${password}`);
+  const httpMethod = method.toUpperCase();
+
+  const candidates = [
+    `http://${host}:${port}/rest${path}`,
+    `http://${host}:8080/rest${path}`,
+  ];
+
+  let lastError  = 'Tidak dapat terhubung ke Mikrotik';
+  let lastStatus = 0;
+
+  for (const url of candidates) {
+    try {
+      const hasBody = ['PUT','PATCH','POST'].includes(httpMethod) && data != null;
+      const resp = await fetch(url, {
+        method: httpMethod,
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Accept': 'application/json',
+          ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+        },
+        ...(hasBody ? { body: JSON.stringify(data) } : {}),
+        signal: AbortSignal.timeout(12000),
+      });
+
+      if (resp.status === 401) {
+        return new Response(JSON.stringify({ error: 'Login Mikrotik gagal — username atau password salah' }), {
+          status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (resp.status === 404) {
+        lastStatus = 404;
+        lastError  = 'REST API tidak ditemukan. Pastikan RouterOS v7.1+ dan service www aktif.';
+        continue;
+      }
+
+      if (httpMethod === 'DELETE' && (resp.status === 204 || resp.status === 200)) {
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const text = await resp.text();
+      return new Response(text || 'null', {
+        status: resp.status,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+
+    } catch (err) {
+      lastError = err.name === 'TimeoutError'
+        ? 'Timeout 12 detik — Mikrotik tidak merespons'
+        : 'Koneksi gagal: ' + err.message;
+    }
+  }
+
+  const hint = lastStatus === 404
+    ? 'Aktifkan REST API: Winbox > IP > Services > www > Enable. RouterOS minimal v7.1'
+    : `Pastikan IP ${host} bisa diakses dari internet dan port ${port} terbuka`;
+
+  return new Response(JSON.stringify({ error: lastError, hint, tried: candidates }), {
+    status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
 }
